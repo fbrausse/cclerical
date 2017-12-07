@@ -6,12 +6,13 @@
 
 #include "clerical.h"
 #include "clerical.tab.h"
+#include "clerical.lex.h"
 
 #define YYMAXDEPTH LONG_MAX
 #define YYLTYPE_IS_TRIVIAL 1
 
 static inline void clerical_error(YYLTYPE *locp, struct clerical_parser *p,
-                                  const char *fmt, ...)
+                                  void *scanner, const char *fmt, ...)
 {
 	fprintf(stderr, "error at %d-%d:%d-%d: ",
 	        locp->first_line, locp->last_line,
@@ -20,13 +21,26 @@ static inline void clerical_error(YYLTYPE *locp, struct clerical_parser *p,
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
+	fprintf(stderr, "\n");
 }
 
-int clerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
+//int clerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
+
+static int lookup_var(struct clerical_parser *p, char *id,
+                      clerical_var_t *v, YYLTYPE *locp)
+{
+	int r = clerical_parser_var_lookup(p, id, v);
+	if (!r) {
+		clerical_error(locp, p, NULL, "variable '%s' not defined\n", id);
+		free(id);
+	}
+	return r;
+}
 
 %}
 
-%parse-param {struct clerical_parser *p}
+%parse-param { struct clerical_parser *p } { void *yyscanner }
+%lex-param { void *yyscanner }
 
 %union {
 	struct clerical_expr *expr;
@@ -50,9 +64,23 @@ int clerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
 
 %token-table
 
+%token TK_IF		"if"
 %token TK_THEN		"then"
 %token TK_ELSE		"else"
 %token TK_CASE		"case"
+%token TK_SKIP		"skip"
+%token TK_LIM		"lim"
+%token TK_VAR		"var"
+%token TK_IN		"in"
+
+%token TK_ASGN		":="
+%token TK_RARROW	"=>"
+%token TK_NE		"/="
+%token TK_BARS		"||"
+
+%token TK_BOOL
+%token TK_INT
+%token TK_REAL
 
 %token <ident> IDENT
 %token <cnst> CONSTANT
@@ -73,16 +101,12 @@ int clerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
 %type <cases> cases
 %type <varref> lim_init
 
-%destructor { free($$); } IDENT
-%destructor { free($$.str); } CONSTANT
-%destructor { clerical_expr_destroy($$); } expr
-%destructor { clerical_stmt_destroy($$); } stmt
-%destructor { clerical_prog_destroy($$); } prog
-%destructor { clerical_cases_fini(&$$); } cases
-
-%start prog
+%start tu
 
 %%
+
+tu
+  : prog { p->prog = $1; }
 
 prog
   : prog ';' stmt
@@ -97,25 +121,27 @@ prog
     }
 
 stmt
-  : IDENT ":=" expr
+  : IDENT TK_ASGN expr
     {
-	$$ = clerical_stmt_create(CLERICAL_STMT_ASGN);
-	if (!clerical_parser_var_lookup(p, $1, &$$->asgn.var)) {
-		clerical_error(&yylloc, p, "variable '%s' not defined\n", $1);
-		free($1);
-		free($$);
+	clerical_var_t v;
+	if (!lookup_var(p, $1, &v, &yylloc))
 		YYERROR;
-	} else
-		free($1);
+	$$ = clerical_stmt_create(CLERICAL_STMT_ASGN);
+	$$->asgn.var = v;
 	$$->asgn.expr = $3;
     }
-  | "skip" { $$ = clerical_stmt_create(CLERICAL_STMT_SKIP); }
-  | "if" expr TK_THEN prog TK_ELSE prog
+  | TK_SKIP { $$ = clerical_stmt_create(CLERICAL_STMT_SKIP); }
+  | TK_IF expr TK_THEN prog TK_ELSE prog
     {
 	$$ = clerical_stmt_create(CLERICAL_STMT_IF);
 	$$->branch.cond = $2;
 	$$->branch.if_true = $4;
 	$$->branch.if_false = $6;
+    }
+  | expr
+    {
+	$$ = clerical_stmt_create(CLERICAL_STMT_EXPR);
+	$$->expr = $1;
     }
 
 expr
@@ -126,13 +152,13 @@ expr
   | expr '^' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_EXP, $1, $3); }
   | expr '<' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_LT, $1, $3); }
   | expr '>' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_GT, $1, $3); }
-  | expr "/=" expr { $$ = clerical_expr_create_op(CLERICAL_OP_NE, $1, $3); }
+  | expr TK_NE expr { $$ = clerical_expr_create_op(CLERICAL_OP_NE, $1, $3); }
   | '-' expr %prec TK_NEG
     {
 	$$ = clerical_expr_create_op(CLERICAL_OP_UMINUS, $2, NULL);
     }
   | '(' expr ')'  { $$ = $2; }
-  | "case" cases
+  | TK_CASE cases
     {
 	$$ = clerical_expr_create(CLERICAL_EXPR_CASE);
 	$$->cases = $2;
@@ -144,29 +170,29 @@ expr
 	$$->lim.seq = $2;
 	$$->lim.local = clerical_parser_close_scope(p);
     }
-  | "var" IDENT ":=" expr ':' type "in" prog
+  | TK_VAR IDENT TK_ASGN expr ':' type TK_IN prog
     {
-	$$ = clerical_expr_create(CLERICAL_EXPR_DECL_ASGN);
-	int r = clerical_parser_new_var(p, $2, $6, &$$->decl_asgn.var);
+	clerical_var_t v;
+	int r = clerical_parser_new_var(p, $2, $6, &v);
 	if (r) {
-		clerical_expr_destroy($$);
-		clerical_error(&yylloc, p, "error defining variable '%s': %s\n", $2, strerror(r));
+		clerical_error(&yylloc, p, yyscanner,
+		               "error defining variable '%s': %s\n", $2,
+		               strerror(r));
 		free($2);
 		YYERROR;
 	}
+	$$ = clerical_expr_create(CLERICAL_EXPR_DECL_ASGN);
+	$$->decl_asgn.var  = v;
 	$$->decl_asgn.expr = $4;
 	$$->decl_asgn.prog = $8;
     }
   | IDENT
     {
-	$$ = clerical_expr_create(CLERICAL_EXPR_VAR);
-	if (!clerical_parser_var_lookup(p, $1, &$$->var)) {
-		clerical_error(&yylloc, p, "variable '%s' not defined\n", $1);
-		free($1);
-		free($$);
+	clerical_var_t v;
+	if (!lookup_var(p, $1, &v, &yylloc))
 		YYERROR;
-	} else
-		free($1);
+	$$ = clerical_expr_create(CLERICAL_EXPR_VAR);
+	$$->var = v;
     }
   | CONSTANT
     {
@@ -175,12 +201,12 @@ expr
     }
 
 lim_init
-  : "lim" IDENT "=>"
+  : TK_LIM IDENT TK_RARROW
     {
 	clerical_parser_open_scope(p);
 	int r = clerical_parser_new_var(p, $2, CLERICAL_TYPE_INT, &$$);
 	if (r) {
-		clerical_error(&yylloc, p,
+		clerical_error(&yylloc, p, yyscanner,
 		               "error declaring variable '%s' in lim: %s\n",
 		               strerror(r));
 		free($2);
@@ -189,13 +215,13 @@ lim_init
     }
 
 cases
-  : expr "=>" prog
+  : expr TK_RARROW prog
     {
 	memset(&$$, 0, sizeof($$));
 	clerical_vector_add(&$$, $1);
 	clerical_vector_add(&$$, $3);
     }
-  | cases "||" expr "=>" prog
+  | cases TK_BARS expr TK_RARROW prog
     {
 	$$ = $1;
 	clerical_vector_add(&$$, $3);
@@ -203,8 +229,8 @@ cases
     }
 
 type
-  : "Bool" { $$ = CLERICAL_TYPE_BOOL; }
-  | "Int"  { $$ = CLERICAL_TYPE_INT; }
-  | "Real" { $$ = CLERICAL_TYPE_REAL; }
+  : TK_BOOL { $$ = CLERICAL_TYPE_BOOL; }
+  | TK_INT  { $$ = CLERICAL_TYPE_INT; }
+  | TK_REAL { $$ = CLERICAL_TYPE_REAL; }
 
 %%

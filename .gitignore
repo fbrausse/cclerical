@@ -1,4 +1,5 @@
 *.o
 *.lex.c
+*.lex.h
 *.tab.c
 *.tab.h
