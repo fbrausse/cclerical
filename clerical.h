@@ -164,7 +164,7 @@ struct clerical_parser {
 void clerical_parser_init(struct clerical_parser *p);
 
 int  clerical_parser_var_lookup(struct clerical_parser *p, const char *id,
-                                clerical_var_t *v);
+                                clerical_var_t *v, int rw);
 
 int  clerical_parser_new_var(struct clerical_parser *p, char *id,
                              enum clerical_type type, clerical_var_t *v);

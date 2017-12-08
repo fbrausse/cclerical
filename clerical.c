@@ -144,7 +144,8 @@ void clerical_parser_init(struct clerical_parser *p)
 static
 const int clerical_parser_var_lookup0(const struct clerical_parser *p,
                                       const struct clerical_parser_scope *s,
-                                      const char *id, clerical_var_t *ridx)
+                                      const char *id, clerical_var_t *ridx,
+                                      int rw)
 {
 	if (!s)
 		return 0;
@@ -157,20 +158,20 @@ const int clerical_parser_var_lookup0(const struct clerical_parser *p,
 			return 1;
 		}
 	}
-	return clerical_parser_var_lookup0(p, s->parent, id, ridx);
+	return rw ? 0 : clerical_parser_var_lookup0(p, s->parent, id, ridx, rw);
 }
 
 int clerical_parser_var_lookup(struct clerical_parser *p, const char *id,
-                               clerical_var_t *v)
+                               clerical_var_t *v, int rw)
 {
-	return clerical_parser_var_lookup0(p, &p->scope, id, v);
+	return clerical_parser_var_lookup0(p, &p->scope, id, v, rw);
 }
 
 int clerical_parser_new_var(struct clerical_parser *p, char *id,
                             enum clerical_type type, clerical_var_t *v)
 {
 	clerical_var_t exists;
-	if (clerical_parser_var_lookup(p, id, &exists))
+	if (clerical_parser_var_lookup(p, id, &exists, 0))
 		return EEXIST;
 	size_t idx = p->vars.valid;
 	clerical_vector_add(&p->vars, clerical_var_create(id, type));

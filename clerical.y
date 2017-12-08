@@ -27,11 +27,15 @@ static inline void clerical_error(YYLTYPE *locp, struct clerical_parser *p,
 //int clerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
 
 static int lookup_var(struct clerical_parser *p, char *id,
-                      clerical_var_t *v, YYLTYPE *locp)
+                      clerical_var_t *v, YYLTYPE *locp, int rw)
 {
-	int r = clerical_parser_var_lookup(p, id, v);
+	int r = clerical_parser_var_lookup(p, id, v, rw);
 	if (!r) {
-		clerical_error(locp, p, NULL, "variable '%s' not defined\n", id);
+		clerical_error(locp, p, NULL,
+		               "error: variable '%s' is %s in this context\n",
+		               id,
+		               rw && !clerical_parser_var_lookup(p, id, v, 0)
+		               ? "read-only" : "not defined");
 		free(id);
 	}
 	return r;
@@ -125,7 +129,7 @@ stmt
   : IDENT TK_ASGN expr
     {
 	clerical_var_t v;
-	if (!lookup_var(p, $1, &v, &yylloc))
+	if (!lookup_var(p, $1, &v, &yylloc, 1))
 		YYERROR;
 	$$ = clerical_stmt_create(CLERICAL_STMT_ASGN);
 	$$->asgn.var = v;
@@ -185,7 +189,7 @@ expr
   | IDENT
     {
 	clerical_var_t v;
-	if (!lookup_var(p, $1, &v, &yylloc))
+	if (!lookup_var(p, $1, &v, &yylloc, 0))
 		YYERROR;
 	$$ = clerical_expr_create(CLERICAL_EXPR_VAR);
 	$$->var = v;
