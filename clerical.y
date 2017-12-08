@@ -72,6 +72,7 @@ static int lookup_var(struct clerical_parser *p, char *id,
 %token TK_LIM		"lim"
 %token TK_VAR		"var"
 %token TK_IN		"in"
+%token TK_WHILE		"while"
 
 %token TK_ASGN		":="
 %token TK_RARROW	"=>"
@@ -96,7 +97,7 @@ static int lookup_var(struct clerical_parser *p, char *id,
 
 %type <prog> prog
 %type <stmt> stmt
-%type <expr> expr
+%type <expr> expr var_init
 %type <type> type
 %type <cases> cases
 %type <varref> lim_init
@@ -138,6 +139,12 @@ stmt
 	$$->branch.if_true = $4;
 	$$->branch.if_false = $6;
     }
+  | TK_WHILE expr prog
+    {
+	$$ = clerical_stmt_create(CLERICAL_STMT_WHILE);
+	$$->loop.cond = $2;
+	$$->loop.body = $3;
+    }
   | expr
     {
 	$$ = clerical_stmt_create(CLERICAL_STMT_EXPR);
@@ -170,21 +177,10 @@ expr
 	$$->lim.seq = $2;
 	$$->lim.local = clerical_parser_close_scope(p);
     }
-  | TK_VAR IDENT TK_ASGN expr ':' type TK_IN prog
+  | var_init TK_IN prog
     {
-	clerical_var_t v;
-	int r = clerical_parser_new_var(p, $2, $6, &v);
-	if (r) {
-		clerical_error(&yylloc, p, yyscanner,
-		               "error defining variable '%s': %s\n", $2,
-		               strerror(r));
-		free($2);
-		YYERROR;
-	}
-	$$ = clerical_expr_create(CLERICAL_EXPR_DECL_ASGN);
-	$$->decl_asgn.var  = v;
-	$$->decl_asgn.expr = $4;
-	$$->decl_asgn.prog = $8;
+	$$ = $1;
+	$$->decl_asgn.prog = $3;
     }
   | IDENT
     {
@@ -198,6 +194,23 @@ expr
     {
 	$$ = clerical_expr_create(CLERICAL_EXPR_CNST);
 	$$->cnst = $1;
+    }
+
+var_init
+  : TK_VAR IDENT TK_ASGN expr ':' type
+    {
+	clerical_var_t v;
+	int r = clerical_parser_new_var(p, $2, $6, &v);
+	if (r) {
+		clerical_error(&yylloc, p, yyscanner,
+		               "error defining variable '%s': %s\n", $2,
+		               strerror(r));
+		free($2);
+		YYERROR;
+	}
+	$$ = clerical_expr_create(CLERICAL_EXPR_DECL_ASGN);
+	$$->decl_asgn.var  = v;
+	$$->decl_asgn.expr = $4;
     }
 
 lim_init

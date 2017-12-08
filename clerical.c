@@ -141,7 +141,7 @@ void clerical_parser_init(struct clerical_parser *p)
 	memset(p, 0, sizeof(*p));
 }
 
-static inline
+static
 const int clerical_parser_var_lookup0(const struct clerical_parser *p,
                                       const struct clerical_parser_scope *s,
                                       const char *id, clerical_var_t *ridx)
@@ -174,6 +174,7 @@ int clerical_parser_new_var(struct clerical_parser *p, char *id,
 		return EEXIST;
 	size_t idx = p->vars.valid;
 	clerical_vector_add(&p->vars, clerical_var_create(id, type));
+	clerical_vector_add(&p->scope.scope.var_idcs, (void *)(uintptr_t)idx);
 	*v = idx;
 	return 0;
 }

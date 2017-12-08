@@ -30,6 +30,7 @@ skip		{ return TK_SKIP; }
 lim		{ return TK_LIM; }
 var		{ return TK_VAR; }
 in		{ return TK_IN; }
+while		{ return TK_WHILE; }
 
 :=		{ return TK_ASGN; }
 =>		{ return TK_RARROW; }

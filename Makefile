@@ -1,12 +1,13 @@
 
 LEX = flex
 YACC = bison
-CFLAGS = -Wall
+CFLAGS = -Wall -O0 -g
 
 .PHONY: clean
 
 test: test.o clerical.tab.o clerical.lex.o clerical.o
 
+# cancelling rules for clerical.c
 %.c: %.y
 %.c: %.l
 
