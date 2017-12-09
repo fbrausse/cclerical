@@ -2,6 +2,27 @@
 %{
 #include "clerical.h"
 #include "clerical.tab.h"
+
+static void update_loc(YYLTYPE *loc, const char *s)
+{
+	loc->first_line = loc->last_line;
+	loc->first_column = loc->last_column;
+	for (; *s; s++)
+		switch (*s) {
+		case '\n':
+			loc->last_line++;
+			loc->last_column = 0;
+			break;
+		case '\t':
+			loc->last_column = (loc->last_column + 8) & ~7U;
+			break;
+		default:
+			loc->last_column++;
+			break;
+		}
+}
+
+#define YY_USER_ACTION update_loc(yylloc, yytext);
 %}
 
 %option reentrant
@@ -10,7 +31,6 @@
 %option noyywrap
 %option prefix="clerical_"
 %option stack
-%option yylineno
 
 IDENT		[a-z_][a-zA-Z0-9_]*
 INT_DEC		[+-]?(0|[1-9][0-9]*)
