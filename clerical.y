@@ -276,6 +276,7 @@ expr
 	$$ = $1;
 	$$->decl_asgn.prog = $3;
 	EXPR($$, TYPES_ALL);
+	free(clerical_parser_close_scope(p).var_idcs.data);
     }
   | IDENT
     {
@@ -296,6 +297,7 @@ expr
 var_init
   : TK_VAR IDENT TK_ASGN expr ':' type
     {
+	clerical_parser_open_scope(p);
 	clerical_var_t v;
 	int r = clerical_parser_new_var(p, $2, $6, &v);
 	if (r) {
