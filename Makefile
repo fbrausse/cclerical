@@ -14,6 +14,8 @@ test: test.o clerical.tab.o clerical.lex.o clerical.o
 %.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
+%.lex.o: override CFLAGS += -Wno-unused-function
+
 test.o clerical.lex.o: clerical.tab.h clerical.lex.h
 
 clerical.tab.c clerical.tab.h: clerical.y
