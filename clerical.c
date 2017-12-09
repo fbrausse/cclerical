@@ -266,7 +266,7 @@ void clerical_parser_open_scope(struct clerical_parser *p)
 	s = malloc(sizeof(struct clerical_parser_scope));
 	*s = p->scope;
 	p->scope.parent = s;
-	memset(&p->scope, 0, sizeof(p->scope));
+	memset(&p->scope.scope, 0, sizeof(p->scope.scope));
 }
 
 struct clerical_scope clerical_parser_close_scope(struct clerical_parser *p)
