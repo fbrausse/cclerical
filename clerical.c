@@ -21,6 +21,11 @@ void clerical_vector_add(struct clerical_vector *v, void *it)
 	v->data[v->valid++] = it;
 }
 
+static void * clerical_vector_last(const struct clerical_vector *v)
+{
+	return v->valid ? v->data[v->valid-1] : NULL;
+}
+
 void clerical_vector_fini(const struct clerical_vector *v)
 {
 	free(v->data);
@@ -42,6 +47,81 @@ struct clerical_expr * clerical_expr_create_op(enum clerical_op op,
 	e->op.arg2 = b;
 	e->op.op = op;
 	return e;
+}
+
+static enum clerical_type clerical_prog_type(const struct clerical_prog *p)
+{
+	struct clerical_stmt *last = clerical_vector_last(&p->stmts);
+	if (!last || last->type != CLERICAL_STMT_EXPR)
+		return CLERICAL_TYPE_UNIT;
+	return last->expr->result_type;
+}
+
+static int is_binary_op(enum clerical_op op)
+{
+	return op != CLERICAL_OP_UMINUS;
+}
+
+void clerical_expr_compute_types(const struct clerical_vector *vars,
+                                 struct clerical_expr *e,
+                                 clerical_type_set_t *types,
+                                 clerical_type_set_t *allowed)
+{
+	*types = 0;
+	switch (e->type) {
+	case CLERICAL_EXPR_CASE:
+		for (size_t i=0; i<e->cases.valid; i+=2)
+			*types |= 1U << clerical_prog_type(e->cases.data[i+1]);
+		*allowed = 1U << CLERICAL_TYPE_BOOL
+		         | 1U << CLERICAL_TYPE_INT
+		         | 1U << CLERICAL_TYPE_REAL;
+		break;
+	case CLERICAL_EXPR_CNST:
+		*types = 1U << e->cnst.lower_type;
+		*allowed = 1U << CLERICAL_TYPE_BOOL
+		         | 1U << CLERICAL_TYPE_INT
+		         | 1U << CLERICAL_TYPE_REAL;
+		break;
+	case CLERICAL_EXPR_DECL_ASGN:
+		*types = 1U << clerical_prog_type(e->decl_asgn.prog);
+		*allowed = 1U << CLERICAL_TYPE_BOOL
+		         | 1U << CLERICAL_TYPE_INT
+		         | 1U << CLERICAL_TYPE_REAL;
+		break;
+	case CLERICAL_EXPR_LIM:
+		*types = 1U << clerical_prog_type(e->lim.seq);
+		*allowed = 1U << CLERICAL_TYPE_REAL;
+		break;
+	case CLERICAL_EXPR_OP:
+		*types = 1U << e->op.arg1->result_type;
+		if (is_binary_op(e->op.op))
+			*types |= 1U << e->op.arg2->result_type;
+		switch (e->op.op) {
+		case CLERICAL_OP_PLUS:
+		case CLERICAL_OP_MINUS:
+		case CLERICAL_OP_MUL:
+		case CLERICAL_OP_DIV:
+		case CLERICAL_OP_EXP:
+		case CLERICAL_OP_UMINUS:
+			*allowed = 1U << CLERICAL_TYPE_INT
+			         | 1U << CLERICAL_TYPE_REAL;
+			break;
+		case CLERICAL_OP_LT:
+		case CLERICAL_OP_GT:
+		case CLERICAL_OP_NE:
+			*allowed = 1U << CLERICAL_TYPE_BOOL;
+			break;
+		}
+		break;
+	case CLERICAL_EXPR_VAR: {
+		const struct clerical_var *v = vars->data[e->var];
+		*types = 1U << v->type;
+		*allowed = 1U << CLERICAL_TYPE_BOOL
+		         | 1U << CLERICAL_TYPE_INT
+		         | 1U << CLERICAL_TYPE_REAL;
+		break;
+	}
+	}
 }
 
 void clerical_expr_destroy(struct clerical_expr *e)

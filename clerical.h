@@ -28,6 +28,8 @@ enum clerical_type {
 	CLERICAL_TYPE_REAL,
 };
 
+typedef unsigned clerical_type_set_t;
+
 struct clerical_constant {
 	enum clerical_type lower_type;
 	char *str;
@@ -75,6 +77,7 @@ enum clerical_expr_type {
 
 struct clerical_expr {
 	enum clerical_expr_type type;
+	enum clerical_type result_type;
 	union {
 		struct clerical_constant cnst;
 		clerical_var_t var;
@@ -101,6 +104,11 @@ struct clerical_expr * clerical_expr_create_op(enum clerical_op op,
                                                struct clerical_expr *a,
                                                struct clerical_expr *b);
 void                   clerical_expr_destroy(struct clerical_expr *e);
+
+void clerical_expr_compute_types(const struct clerical_vector *vars,
+                                 struct clerical_expr *e,
+                                 clerical_type_set_t *types,
+                                 clerical_type_set_t *allowed);
 
 enum clerical_stmt_type {
 	CLERICAL_STMT_SKIP,

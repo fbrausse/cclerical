@@ -32,14 +32,101 @@ static int lookup_var(struct clerical_parser *p, char *id,
 	int r = clerical_parser_var_lookup(p, id, v, rw);
 	if (!r) {
 		clerical_error(locp, p, NULL,
-		               "error: variable '%s' is %s in this context\n",
-		               id,
+		               "variable '%s' is %s in this context\n", id,
 		               rw && !clerical_parser_var_lookup(p, id, v, 0)
 		               ? "read-only" : "not defined");
 		free(id);
 	}
 	return r;
 }
+
+static const unsigned TYPES_ALL = 1U << CLERICAL_TYPE_UNIT
+                                | 1U << CLERICAL_TYPE_BOOL
+                                | 1U << CLERICAL_TYPE_INT
+                                | 1U << CLERICAL_TYPE_REAL;
+
+static int min_super_type(clerical_type_set_t t, enum clerical_type *res)
+{
+	if (!t)
+		return 0;
+	if (t & (1U << CLERICAL_TYPE_UNIT)) {
+		if (~t & ~(1U << CLERICAL_TYPE_UNIT))
+			return 0;
+		*res = CLERICAL_TYPE_UNIT;
+		return 1;
+	}
+	if (t & (1U << CLERICAL_TYPE_BOOL)) {
+		if (~t & ~(1U << CLERICAL_TYPE_BOOL))
+			return 0;
+		*res = CLERICAL_TYPE_BOOL;
+		return 1;
+	}
+	*res = (t & (1U << CLERICAL_TYPE_REAL)) ? CLERICAL_TYPE_REAL
+	                                        : CLERICAL_TYPE_INT;
+	return 1;
+}
+
+static clerical_type_set_t super_types(enum clerical_type t)
+{
+	clerical_type_set_t res = 1U << t;
+	if (t == CLERICAL_TYPE_INT)
+		res |= 1U << CLERICAL_TYPE_REAL;
+	return res;
+}
+
+static struct clerical_expr * expr(struct clerical_parser *p,
+                                   struct clerical_expr *e,
+                                   clerical_type_set_t forced,
+                                   YYLTYPE *locp)
+{
+	clerical_type_set_t types, allowed;
+	clerical_expr_compute_types(&p->vars, e, &types, &allowed);
+	enum clerical_type type_min;
+	if (!min_super_type(types, &type_min)) {
+		clerical_error(locp, p, NULL,
+		               "no common super type in expr combined of types "
+		               "0x%x", types);
+		goto err;
+	}
+	if (!(allowed & forced)) {
+		clerical_error(locp, p, NULL,
+		               "expr-allowed types 0x%x don't intersect forced "
+		               "types 0x%x", allowed, forced);
+		goto err;
+	}
+	allowed &= forced;
+	clerical_type_set_t castable_to = super_types(type_min);
+	if (!(allowed & castable_to)) {
+		clerical_error(locp, p, NULL,
+		               "allowed types 0x%x don't intersect castable "
+		               "types 0x%x of expr", allowed, castable_to);
+		goto err;
+	}
+	allowed &= castable_to;
+	if (!min_super_type(allowed, &e->result_type)) {
+		clerical_error(locp, p, NULL,
+		               "no common super type in 0x%x for complete expr",
+		               allowed);
+		goto err;
+	}
+	return e;
+err:
+	return NULL;
+}
+
+static struct clerical_expr * expr_new(struct clerical_parser *p,
+                                       struct clerical_expr *e,
+                                       YYLTYPE *locp)
+{
+	if (expr(p, e, TYPES_ALL, locp))
+		return e;
+	free(e);
+	return NULL;
+}
+
+#define EXPR_NEW(e)	do { if (!expr_new(p, e, &yylloc)) YYERROR; } while (0)
+#define EXPR(e,forced)	\
+	do { if (!expr(p, e, forced, &yylloc)) YYERROR; } while (0)
 
 %}
 
@@ -157,23 +244,24 @@ stmt
     }
 
 expr
-  : expr '+' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_PLUS, $1, $3); }
-  | expr '-' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_MINUS, $1, $3); }
-  | expr '*' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_MUL, $1, $3); }
-  | expr '/' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_DIV, $1, $3); }
-  | expr '^' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_EXP, $1, $3); }
-  | expr '<' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_LT, $1, $3); }
-  | expr '>' expr  { $$ = clerical_expr_create_op(CLERICAL_OP_GT, $1, $3); }
-  | expr TK_NE expr { $$ = clerical_expr_create_op(CLERICAL_OP_NE, $1, $3); }
+  : expr '+' expr { EXPR_NEW($$ = clerical_expr_create_op(CLERICAL_OP_PLUS, $1, $3)); }
+  | expr '-' expr { EXPR_NEW($$ = clerical_expr_create_op(CLERICAL_OP_MINUS, $1, $3)); }
+  | expr '*' expr { EXPR_NEW($$ = clerical_expr_create_op(CLERICAL_OP_MUL, $1, $3)); }
+  | expr '/' expr { EXPR_NEW($$ = clerical_expr_create_op(CLERICAL_OP_DIV, $1, $3)); }
+  | expr '^' expr { EXPR_NEW($$ = clerical_expr_create_op(CLERICAL_OP_EXP, $1, $3)); }
+  | expr '<' expr { EXPR_NEW($$ = clerical_expr_create_op(CLERICAL_OP_LT, $1, $3)); }
+  | expr '>' expr { EXPR_NEW($$ = clerical_expr_create_op(CLERICAL_OP_GT, $1, $3)); }
+  | expr TK_NE expr { EXPR_NEW($$ = clerical_expr_create_op(CLERICAL_OP_NE, $1, $3)); }
   | '-' expr %prec TK_NEG
     {
-	$$ = clerical_expr_create_op(CLERICAL_OP_UMINUS, $2, NULL);
+	EXPR_NEW($$ = clerical_expr_create_op(CLERICAL_OP_UMINUS, $2, NULL));
     }
   | '(' expr ')'  { $$ = $2; }
   | TK_CASE cases
     {
 	$$ = clerical_expr_create(CLERICAL_EXPR_CASE);
 	$$->cases = $2;
+	EXPR_NEW($$);
     }
   | lim_init prog
     {
@@ -181,11 +269,13 @@ expr
 	$$->lim.seq_idx = $1;
 	$$->lim.seq = $2;
 	$$->lim.local = clerical_parser_close_scope(p);
+	EXPR_NEW($$);
     }
   | var_init TK_IN prog
     {
 	$$ = $1;
 	$$->decl_asgn.prog = $3;
+	EXPR($$, TYPES_ALL);
     }
   | IDENT
     {
@@ -194,11 +284,13 @@ expr
 		YYERROR;
 	$$ = clerical_expr_create(CLERICAL_EXPR_VAR);
 	$$->var = v;
+	EXPR_NEW($$);
     }
   | CONSTANT
     {
 	$$ = clerical_expr_create(CLERICAL_EXPR_CNST);
 	$$->cnst = $1;
+	EXPR_NEW($$);
     }
 
 var_init
@@ -215,7 +307,7 @@ var_init
 	}
 	$$ = clerical_expr_create(CLERICAL_EXPR_DECL_ASGN);
 	$$->decl_asgn.var  = v;
-	$$->decl_asgn.expr = $4;
+	EXPR($$->decl_asgn.expr = $4, 1U << $6);
     }
 
 lim_init
