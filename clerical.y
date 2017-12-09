@@ -11,118 +11,25 @@
 #define YYMAXDEPTH LONG_MAX
 #define YYLTYPE_IS_TRIVIAL 1
 
-static inline void clerical_error(YYLTYPE *locp, struct clerical_parser *p,
-                                  void *scanner, const char *fmt, ...)
-{
-	fprintf(stderr, "error at %d-%d:%d-%d: ",
-	        locp->first_line, locp->last_line,
-	        locp->first_column, locp->last_column);
-	va_list ap;
-	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	va_end(ap);
-	fprintf(stderr, "\n");
-}
-
+static void clerical_error(YYLTYPE *locp, struct clerical_parser *p,
+                           void *scanner, const char *fmt, ...);
 //int clerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
 
 static int lookup_var(struct clerical_parser *p, char *id,
-                      clerical_var_t *v, YYLTYPE *locp, int rw)
-{
-	int r = clerical_parser_var_lookup(p, id, v, rw);
-	if (!r) {
-		clerical_error(locp, p, NULL,
-		               "variable '%s' is %s in this context\n", id,
-		               rw && !clerical_parser_var_lookup(p, id, v, 0)
-		               ? "read-only" : "not defined");
-		free(id);
-	}
-	return r;
-}
+                      clerical_var_t *v, YYLTYPE *locp, int rw);
 
 static const unsigned TYPES_ALL = 1U << CLERICAL_TYPE_UNIT
                                 | 1U << CLERICAL_TYPE_BOOL
                                 | 1U << CLERICAL_TYPE_INT
                                 | 1U << CLERICAL_TYPE_REAL;
 
-static int min_super_type(clerical_type_set_t t, enum clerical_type *res)
-{
-	if (!t)
-		return 0;
-	if (t & (1U << CLERICAL_TYPE_UNIT)) {
-		if (~t & ~(1U << CLERICAL_TYPE_UNIT))
-			return 0;
-		*res = CLERICAL_TYPE_UNIT;
-		return 1;
-	}
-	if (t & (1U << CLERICAL_TYPE_BOOL)) {
-		if (~t & ~(1U << CLERICAL_TYPE_BOOL))
-			return 0;
-		*res = CLERICAL_TYPE_BOOL;
-		return 1;
-	}
-	*res = (t & (1U << CLERICAL_TYPE_REAL)) ? CLERICAL_TYPE_REAL
-	                                        : CLERICAL_TYPE_INT;
-	return 1;
-}
-
-static clerical_type_set_t super_types(enum clerical_type t)
-{
-	clerical_type_set_t res = 1U << t;
-	if (t == CLERICAL_TYPE_INT)
-		res |= 1U << CLERICAL_TYPE_REAL;
-	return res;
-}
-
 static struct clerical_expr * expr(struct clerical_parser *p,
                                    struct clerical_expr *e,
                                    clerical_type_set_t forced,
-                                   YYLTYPE *locp)
-{
-	clerical_type_set_t types, allowed;
-	clerical_expr_compute_types(&p->vars, e, &types, &allowed);
-	enum clerical_type type_min;
-	if (!min_super_type(types, &type_min)) {
-		clerical_error(locp, p, NULL,
-		               "no common super type in expr combined of types "
-		               "0x%x", types);
-		goto err;
-	}
-	if (!(allowed & forced)) {
-		clerical_error(locp, p, NULL,
-		               "expr-allowed types 0x%x don't intersect forced "
-		               "types 0x%x", allowed, forced);
-		goto err;
-	}
-	allowed &= forced;
-	clerical_type_set_t castable_to = super_types(type_min);
-	if (!(allowed & castable_to)) {
-		clerical_error(locp, p, NULL,
-		               "allowed types 0x%x don't intersect castable "
-		               "types 0x%x of expr", allowed, castable_to);
-		goto err;
-	}
-	allowed &= castable_to;
-	if (!min_super_type(allowed, &e->result_type)) {
-		clerical_error(locp, p, NULL,
-		               "no common super type in 0x%x for complete expr",
-		               allowed);
-		goto err;
-	}
-	return e;
-err:
-	return NULL;
-}
-
+                                   YYLTYPE *locp);
 static struct clerical_expr * expr_new(struct clerical_parser *p,
                                        struct clerical_expr *e,
-                                       YYLTYPE *locp)
-{
-	if (expr(p, e, TYPES_ALL, locp))
-		return e;
-	free(e);
-	return NULL;
-}
+                                       YYLTYPE *locp);
 
 #define EXPR_NEW(e)	do { if (!expr_new(p, e, &yylloc)) YYERROR; } while (0)
 #define EXPR(e,forced)	\
@@ -346,3 +253,109 @@ type
   | TK_REAL { $$ = CLERICAL_TYPE_REAL; }
 
 %%
+
+static inline void clerical_error(YYLTYPE *locp, struct clerical_parser *p,
+                                  void *scanner, const char *fmt, ...)
+{
+	fprintf(stderr, "error at %d-%d:%d-%d: ",
+	        locp->first_line, locp->last_line,
+	        locp->first_column, locp->last_column);
+	va_list ap;
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
+}
+
+static int lookup_var(struct clerical_parser *p, char *id,
+                      clerical_var_t *v, YYLTYPE *locp, int rw)
+{
+	int r = clerical_parser_var_lookup(p, id, v, rw);
+	if (!r) {
+		clerical_error(locp, p, NULL,
+		               "variable '%s' is %s in this context", id,
+		               rw && clerical_parser_var_lookup(p, id, v, 0)
+		               ? "read-only" : "not defined");
+		free(id);
+	}
+	return r;
+}
+
+static int min_super_type(clerical_type_set_t t, enum clerical_type *res)
+{
+	if (!t)
+		return 0;
+	if (t & (1U << CLERICAL_TYPE_UNIT)) {
+		if (~t & ~(1U << CLERICAL_TYPE_UNIT))
+			return 0;
+		*res = CLERICAL_TYPE_UNIT;
+		return 1;
+	}
+	if (t & (1U << CLERICAL_TYPE_BOOL)) {
+		if (~t & ~(1U << CLERICAL_TYPE_BOOL))
+			return 0;
+		*res = CLERICAL_TYPE_BOOL;
+		return 1;
+	}
+	*res = (t & (1U << CLERICAL_TYPE_REAL)) ? CLERICAL_TYPE_REAL
+	                                        : CLERICAL_TYPE_INT;
+	return 1;
+}
+
+static clerical_type_set_t super_types(enum clerical_type t)
+{
+	clerical_type_set_t res = 1U << t;
+	if (t == CLERICAL_TYPE_INT)
+		res |= 1U << CLERICAL_TYPE_REAL;
+	return res;
+}
+
+static struct clerical_expr * expr(struct clerical_parser *p,
+                                   struct clerical_expr *e,
+                                   clerical_type_set_t forced,
+                                   YYLTYPE *locp)
+{
+	clerical_type_set_t types, allowed;
+	clerical_expr_compute_types(&p->vars, e, &types, &allowed);
+	enum clerical_type type_min;
+	if (!min_super_type(types, &type_min)) {
+		clerical_error(locp, p, NULL,
+		               "no common super type in expr combined of types "
+		               "0x%x", types);
+		goto err;
+	}
+	if (!(allowed & forced)) {
+		clerical_error(locp, p, NULL,
+		               "expr-allowed types 0x%x don't intersect forced "
+		               "types 0x%x", allowed, forced);
+		goto err;
+	}
+	allowed &= forced;
+	clerical_type_set_t castable_to = super_types(type_min);
+	if (!(allowed & castable_to)) {
+		clerical_error(locp, p, NULL,
+		               "allowed types 0x%x don't intersect castable "
+		               "types 0x%x of expr", allowed, castable_to);
+		goto err;
+	}
+	allowed &= castable_to;
+	if (!min_super_type(allowed, &e->result_type)) {
+		clerical_error(locp, p, NULL,
+		               "no common super type in 0x%x for complete expr",
+		               allowed);
+		goto err;
+	}
+	return e;
+err:
+	return NULL;
+}
+
+static struct clerical_expr * expr_new(struct clerical_parser *p,
+                                       struct clerical_expr *e,
+                                       YYLTYPE *locp)
+{
+	if (expr(p, e, TYPES_ALL, locp))
+		return e;
+	free(e);
+	return NULL;
+}
