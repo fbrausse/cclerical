@@ -38,6 +38,7 @@ while		{ return TK_WHILE; }
 
 [+*/:;^()=<>-]	{ return yytext[0]; }
 
+Unit		{ return TK_UNIT; }
 Bool		{ return TK_BOOL; }
 Int		{ return TK_INT; }
 Real		{ return TK_REAL; }

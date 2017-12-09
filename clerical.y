@@ -83,9 +83,10 @@ static int lookup_var(struct clerical_parser *p, char *id,
 %token TK_NE		"/="
 %token TK_BARS		"||"
 
-%token TK_BOOL
-%token TK_INT
-%token TK_REAL
+%token TK_UNIT		"Unit"
+%token TK_BOOL		"Bool"
+%token TK_INT		"Int"
+%token TK_REAL		"Real"
 
 %token <ident> IDENT
 %token <cnst> CONSTANT

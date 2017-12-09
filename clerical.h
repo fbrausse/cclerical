@@ -22,7 +22,7 @@ void clerical_vector_add(struct clerical_vector *v, void *it);
 void clerical_vector_fini(const struct clerical_vector *v);
 
 enum clerical_type {
-	CLERICAL_TYPE_UNDEF = -1,
+	CLERICAL_TYPE_UNIT,
 	CLERICAL_TYPE_BOOL,
 	CLERICAL_TYPE_INT,
 	CLERICAL_TYPE_REAL,
