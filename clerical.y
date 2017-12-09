@@ -174,7 +174,7 @@ expr
 	$$ = clerical_expr_create(CLERICAL_EXPR_CASE);
 	$$->cases = $2;
     }
-  | lim_init expr
+  | lim_init prog
     {
 	$$ = clerical_expr_create(CLERICAL_EXPR_LIM);
 	$$->lim.seq_idx = $1;

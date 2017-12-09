@@ -85,7 +85,7 @@ struct clerical_expr {
 		struct clerical_vector cases; /* of clerical_case */
 		struct {
 			clerical_var_t seq_idx;
-			struct clerical_expr *seq;
+			struct clerical_prog *seq;
 			struct clerical_scope local;
 		} lim;
 		struct clerical_stmt_decl_asgn {

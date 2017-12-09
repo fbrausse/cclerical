@@ -55,7 +55,7 @@ void clerical_expr_destroy(struct clerical_expr *e)
 		clerical_prog_destroy(e->decl_asgn.prog);
 		break;
 	case CLERICAL_EXPR_LIM:
-		clerical_expr_destroy(e->lim.seq);
+		clerical_prog_destroy(e->lim.seq);
 		clerical_scope_fini(&e->lim.local);
 		break;
 	case CLERICAL_EXPR_OP:
