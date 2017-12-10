@@ -1,7 +1,7 @@
 
 %{
-#include "clerical.h"
-#include "clerical.tab.h"
+#include "cclerical.h"
+#include "cclerical.tab.h"
 
 static void update_loc(YYLTYPE *loc, const char *s)
 {
@@ -29,7 +29,7 @@ static void update_loc(YYLTYPE *loc, const char *s)
 %option bison-bridge
 %option bison-locations
 %option noyywrap
-%option prefix="clerical_"
+%option prefix="cclerical_"
 %option stack
 
 IDENT		[a-z_][a-zA-Z0-9_]*
@@ -68,28 +68,28 @@ Real		{ return TK_REAL; }
 {IDENT}		{ yylval->ident = strdup(yytext); return IDENT; }
 
 {INT_DEC}	{
-			yylval->cnst.lower_type = CLERICAL_TYPE_INT;
+			yylval->cnst.lower_type = CCLERICAL_TYPE_INT;
 			yylval->cnst.str        = strdup(yytext);
 			yylval->cnst.base       = 10;
 			return CONSTANT;
 		}
 
 {INT_HEX}	{
-			yylval->cnst.lower_type = CLERICAL_TYPE_INT;
+			yylval->cnst.lower_type = CCLERICAL_TYPE_INT;
 			yylval->cnst.str        = strdup(yytext);
 			yylval->cnst.base       = 16;
 			return CONSTANT;
 		}
 
 {INT_BIN}	{
-			yylval->cnst.lower_type = CLERICAL_TYPE_INT;
+			yylval->cnst.lower_type = CCLERICAL_TYPE_INT;
 			yylval->cnst.str        = strdup(yytext);
 			yylval->cnst.base       = 2;
 			return CONSTANT;
 		}
 
 {INT_OCT}	{
-			yylval->cnst.lower_type = CLERICAL_TYPE_INT;
+			yylval->cnst.lower_type = CCLERICAL_TYPE_INT;
 			yylval->cnst.str        = strdup(yytext);
 			yylval->cnst.base       = 8;
 			return CONSTANT;

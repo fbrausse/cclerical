@@ -5,9 +5,9 @@ CFLAGS = -Wall -O0 -g
 
 .PHONY: clean
 
-test: test.o clerical.tab.o clerical.lex.o clerical.o
+test: test.o cclerical.tab.o cclerical.lex.o cclerical.o
 
-# cancelling rules for clerical.c
+# cancelling rules for cclerical.c
 %.c: %.y
 %.c: %.l
 
@@ -16,13 +16,13 @@ test: test.o clerical.tab.o clerical.lex.o clerical.o
 
 %.lex.o: override CFLAGS += -Wno-unused-function
 
-test.o clerical.lex.o: clerical.tab.h clerical.lex.h
+test.o cclerical.lex.o: cclerical.tab.h cclerical.lex.h
 
-clerical.tab.c clerical.tab.h: clerical.y
+cclerical.tab.c cclerical.tab.h: cclerical.y
 	$(YACC) $(YFLAGS) $<
 
-clerical.lex.c clerical.lex.h: clerical.l
-	$(LEX) $(LEXFLAGS) -o clerical.lex.c --header-file=clerical.lex.h $<
+cclerical.lex.c cclerical.lex.h: cclerical.l
+	$(LEX) $(LEXFLAGS) -o cclerical.lex.c --header-file=cclerical.lex.h $<
 
 clean:
-	$(RM) test test.o clerical.tab.* clerical.lex.* clerical.o
+	$(RM) test test.o cclerical.tab.* cclerical.lex.* cclerical.o
