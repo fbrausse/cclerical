@@ -163,7 +163,7 @@ int main(int argc, char **argv)
 {
 	for (int opt; (opt = getoptopt(argc, argv, ":b:D:hi:mt:U:x:", "b")) != -1;)
 		switch (opt) {
-		case 'b': printf("b: %s\n", optopt); break;
+		case 'b': printf("b: %s\n", optarg); break;
 		case 'h':
 			printf("usage: %s [-OPTS] [FILE|-]\n", argv[0]);
 			printf("\n\
