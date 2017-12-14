@@ -53,6 +53,7 @@ in		{ return TK_IN; }
 while		{ return TK_WHILE; }
 end		{ return TK_END; }
 do		{ return TK_DO; }
+function	{ return TK_FUN; }
 
 :=		{ return TK_ASGN; }
 =>		{ return TK_RARROW; }

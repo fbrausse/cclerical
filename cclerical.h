@@ -18,6 +18,11 @@ struct cclerical_vector {
 
 #define CCLERICAL_VECTOR_INIT	{ NULL, 0, 0, }
 
+static inline void cclerical_vector_init(struct cclerical_vector *v)
+{
+	memset(v, 0, sizeof(*v));
+}
+
 void cclerical_vector_add(struct cclerical_vector *v, void *it);
 void cclerical_vector_fini(const struct cclerical_vector *v);
 
@@ -152,6 +157,16 @@ struct cclerical_case {
 
 void cclerical_cases_fini(const struct cclerical_vector *c);
 
+struct cclerical_fun {
+	char *id;
+	struct cclerical_vector arguments; /* of type (void *)(uintptr_t)cclerical_var_t */
+	struct cclerical_prog *body;
+};
+
+struct cclerical_fun * cclerical_fun_create(char *id,
+                                            struct cclerical_vector *arguments,
+                                            struct cclerical_prog *body);
+
 /* -------------------------------------------------------------------------- */
 
 struct cclerical_parser_scope {
@@ -163,6 +178,7 @@ struct cclerical_parser {
 	struct cclerical_parser_scope scope;
 	struct cclerical_prog *prog;
 	struct cclerical_vector vars; /* of struct cclerical_var * */
+	struct cclerical_vector funs; /* of struct cclerical_fun * */
 };
 
 void cclerical_parser_init(struct cclerical_parser *p);

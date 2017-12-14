@@ -147,6 +147,14 @@ void cclerical_scope_fini(const struct cclerical_scope *s)
 	cclerical_vector_fini(&s->var_idcs);
 }
 
+struct cclerical_fun * cclerical_fun_create(char *id,
+                                            struct cclerical_vector *arguments,
+                                            struct cclerical_prog *body)
+{
+	struct cclerical_fun fun = { id, *arguments, body };
+	return memdup(&fun, sizeof(fun));
+}
+
 /* -------------------------------------------------------------------------- */
 
 void cclerical_parser_init(struct cclerical_parser *p)

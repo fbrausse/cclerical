@@ -54,6 +54,8 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 	char *ident;
 	struct cclerical_vector cases;
 	struct cclerical_constant cnst;
+	struct cclerical_vector params;
+	struct cclerical_fun *fun;
 };
 
 %locations
@@ -78,6 +80,7 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 %token TK_WHILE		"while"
 %token TK_END		"end"
 %token TK_DO		"do"
+%token TK_FUN		"function"
 
 %token TK_ASGN		":="
 %token TK_RARROW	"=>"
@@ -107,14 +110,60 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 %type <expr> expr var_init
 %type <type> type
 %type <cases> cases
-%type <varref> lim_init
+%type <varref> lim_init fun_param
+%type <params> fun_params fun_params_spec
+%type <fun> fun_decl
+%type <ident> fun_decl_init
 
 %start tu
 
 %%
 
 tu
-  : prog { p->prog = $1; }
+  : %empty
+  | tu toplevel
+
+toplevel
+  : fun_decl { cclerical_vector_add(&p->funs, $1); }
+  | TK_DO prog { p->prog = $2; }
+
+fun_decl
+  : fun_decl_init '(' fun_params_spec ')' ':' prog
+    {
+	$$ = cclerical_fun_create($1, &$3, $6);
+	cclerical_parser_close_scope(p);
+    }
+
+fun_decl_init
+  : TK_FUN IDENT { cclerical_parser_open_scope(p); $$ = $2; }
+
+fun_params_spec
+  : %empty      { cclerical_vector_init(&$$); }
+  | fun_params
+
+fun_params
+  : fun_param
+    {
+	cclerical_vector_init(&$$);
+	cclerical_vector_add(&$$, (void *)(uintptr_t)$1);
+    }
+  | fun_params ',' fun_param
+    {
+	cclerical_vector_add(&$$, (void *)(uintptr_t)$3);
+    }
+
+fun_param
+  : type IDENT
+    {
+	int r = cclerical_parser_new_var(p, $2, $1, &$$);
+	if (r) {
+		cclerical_error(&yylloc, p, yyscanner,
+		                "error declaring function parameter '%s': %s\n",
+		                $2, strerror(r));
+		free($2);
+		YYERROR;
+	}
+    }
 
 prog
   : prog ';' stmt
