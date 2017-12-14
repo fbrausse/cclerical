@@ -51,6 +51,8 @@ lim		{ return TK_LIM; }
 var		{ return TK_VAR; }
 in		{ return TK_IN; }
 while		{ return TK_WHILE; }
+end		{ return TK_END; }
+do		{ return TK_DO; }
 
 :=		{ return TK_ASGN; }
 =>		{ return TK_RARROW; }

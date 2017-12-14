@@ -71,6 +71,8 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 %token TK_VAR		"var"
 %token TK_IN		"in"
 %token TK_WHILE		"while"
+%token TK_END		"end"
+%token TK_DO		"do"
 
 %token TK_ASGN		":="
 %token TK_RARROW	"=>"
@@ -85,13 +87,14 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 %token <ident> IDENT
 %token <cnst> CONSTANT
 
+%precedence ';'
 %precedence TK_THEN
 %precedence TK_ELSE
 
-%left  '<' '>' "/="
+%nonassoc '<' '>' TK_NE
 %left  '+' '-'
 %left  '*' '/'
-%precedence TK_NEG
+%precedence UMINUS
 %right '^'
 
 %type <prog> prog
@@ -131,18 +134,18 @@ stmt
 	$$->asgn.expr = $3;
     }
   | TK_SKIP { $$ = cclerical_stmt_create(CCLERICAL_STMT_SKIP); }
-  | TK_IF expr TK_THEN prog TK_ELSE prog
+  | TK_IF expr TK_THEN prog TK_ELSE prog TK_END
     {
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_IF);
 	$$->branch.cond = $2;
 	$$->branch.if_true = $4;
 	$$->branch.if_false = $6;
     }
-  | TK_WHILE expr prog
+  | TK_WHILE expr TK_DO prog TK_END
     {
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_WHILE);
 	$$->loop.cond = $2;
-	$$->loop.body = $3;
+	$$->loop.body = $4;
     }
   | expr
     {
@@ -159,18 +162,18 @@ expr
   | expr '<' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_LT, $1, $3)); }
   | expr '>' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GT, $1, $3)); }
   | expr TK_NE expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3)); }
-  | '-' expr %prec TK_NEG
+  | '-' expr %prec UMINUS
     {
 	EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_UMINUS, $2, NULL));
     }
   | '(' expr ')'  { $$ = $2; }
-  | TK_CASE cases
+  | TK_CASE cases TK_END
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_CASE);
 	$$->cases = $2;
 	EXPR_NEW($$);
     }
-  | lim_init prog
+  | lim_init prog TK_END
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_LIM);
 	$$->lim.seq_idx = $1;
@@ -178,7 +181,7 @@ expr
 	$$->lim.local = cclerical_parser_close_scope(p);
 	EXPR_NEW($$);
     }
-  | var_init TK_IN prog
+  | var_init TK_IN prog TK_END
     {
 	$$ = $1;
 	$$->decl_asgn.prog = $3;
