@@ -186,6 +186,8 @@ stmt
 	cclerical_id_t v;
 	if (!lookup_var(p, $1, &v, &yylloc, 1))
 		YYERROR;
+	struct cclerical_decl *d = p->decls.data[v];
+	EXPR($3, 1U << d->var.type);
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_ASGN);
 	$$->asgn.var = v;
 	$$->asgn.expr = $3;
@@ -193,6 +195,7 @@ stmt
   | TK_SKIP { $$ = cclerical_stmt_create(CCLERICAL_STMT_SKIP); }
   | TK_IF expr TK_THEN prog TK_ELSE prog TK_END
     {
+	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_IF);
 	$$->branch.cond = $2;
 	$$->branch.if_true = $4;
@@ -200,6 +203,7 @@ stmt
     }
   | TK_WHILE expr TK_DO prog TK_END
     {
+	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_WHILE);
 	$$->loop.cond = $2;
 	$$->loop.body = $4;
@@ -242,7 +246,7 @@ expr
     {
 	$$ = $1;
 	$$->decl_asgn.prog = $3;
-	EXPR($$, 1U << $$->result_type);
+	EXPR_NEW($$);
 	free(cclerical_parser_close_scope(p).var_idcs.data);
     }
   | IDENT '(' fun_call_param_spec ')'
@@ -286,6 +290,7 @@ fun_call_params
 var_init
   : TK_VAR IDENT TK_ASGN expr ':' type
     {
+	EXPR($4, 1U << $6);
 	cclerical_parser_open_scope(p);
 	cclerical_id_t v;
 	int r = cclerical_parser_new_var(p, $2, $6, &v);
@@ -299,7 +304,6 @@ var_init
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
 	$$->decl_asgn.var  = v;
 	$$->decl_asgn.expr = $4;
-	$$->result_type = $6;
     }
 
 lim_init
