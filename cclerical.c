@@ -120,7 +120,8 @@ void cclerical_stmt_destroy(struct cclerical_stmt *s)
 	case CCLERICAL_STMT_IF:
 		cclerical_expr_destroy(s->branch.cond);
 		cclerical_prog_destroy(s->branch.if_true);
-		cclerical_prog_destroy(s->branch.if_false);
+		if (s->branch.if_false)
+			cclerical_prog_destroy(s->branch.if_false);
 		break;
 	case CCLERICAL_STMT_WHILE:
 		cclerical_expr_destroy(s->loop.cond);

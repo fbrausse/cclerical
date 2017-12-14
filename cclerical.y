@@ -107,7 +107,7 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 %precedence UMINUS
 %right '^'
 
-%type <prog> prog
+%type <prog> prog else_branch
 %type <stmt> stmt
 %type <expr> expr var_init
 %type <type> type
@@ -191,13 +191,13 @@ stmt
 	$$->asgn.expr = $3;
     }
   | TK_SKIP { $$ = cclerical_stmt_create(CCLERICAL_STMT_SKIP); }
-  | TK_IF expr TK_THEN prog TK_ELSE prog TK_END
+  | TK_IF expr TK_THEN prog else_branch TK_END
     {
 	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_IF);
 	$$->branch.cond = $2;
 	$$->branch.if_true = $4;
-	$$->branch.if_false = $6;
+	$$->branch.if_false = $5;
     }
   | TK_WHILE expr TK_DO prog TK_END
     {
@@ -211,6 +211,10 @@ stmt
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_EXPR);
 	$$->expr = $1;
     }
+
+else_branch
+  : %empty { $$ = NULL; }
+  | TK_ELSE prog { $$ = $2; }
 
 expr
   : expr '+' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_ADD, $1, $3)); }

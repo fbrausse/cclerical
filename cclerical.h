@@ -140,7 +140,7 @@ struct cclerical_stmt {
 		struct {
 			struct cclerical_expr *cond;
 			struct cclerical_prog *if_true;
-			struct cclerical_prog *if_false;
+			struct cclerical_prog *if_false; /* may be NULL */
 		} branch;
 		struct {
 			cclerical_id_t var;

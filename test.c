@@ -106,8 +106,10 @@ static void pstmt(const struct cclerical_stmt *s, int lvl)
 		pexpr(s->branch.cond, lvl+1);
 		fprintf(stderr, "%*sif true branch:\n", lvl, "");
 		pprog(s->branch.if_true, lvl+1);
-		fprintf(stderr, "%*sif false branch:\n", lvl, "");
-		pprog(s->branch.if_false, lvl+1);
+		if (s->branch.if_false) {
+			fprintf(stderr, "%*sif false branch:\n", lvl, "");
+			pprog(s->branch.if_false, lvl+1);
+		}
 		break;
 	}
 }
