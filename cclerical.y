@@ -55,7 +55,6 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 	struct cclerical_vector cases;
 	struct cclerical_constant cnst;
 	struct cclerical_vector params;
-	struct cclerical_fun *fun;
 };
 
 %locations
@@ -110,9 +109,9 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 %type <expr> expr var_init
 %type <type> type
 %type <cases> cases
-%type <varref> lim_init fun_decl_param
+%type <varref> lim_init fun_decl_param fun_decl
 %type <params> fun_decl_params fun_decl_params_spec
-%type <fun> fun_decl
+%type <params> fun_call_params fun_call_param_spec
 %type <ident> fun_decl_init
 
 %start tu
@@ -124,14 +123,14 @@ tu
   | tu toplevel
 
 toplevel
-  : fun_decl { cclerical_vector_add(&p->funs, $1); }
+  : fun_decl
   | TK_DO prog { p->prog = $2; }
 
 fun_decl
   : fun_decl_init '(' fun_decl_params_spec ')' ':' prog
     {
-	$$ = cclerical_fun_create($1, &$3, $6);
-	cclerical_parser_close_scope(p);
+	free(cclerical_parser_close_scope(p).var_idcs.data);
+	cclerical_parser_new_fun(p, $1, $3, $6, &$$);
     }
 
 fun_decl_init
@@ -242,6 +241,45 @@ expr
 	EXPR($$, 1U << $$->result_type);
 	free(cclerical_parser_close_scope(p).var_idcs.data);
     }
+  | IDENT '(' fun_call_param_spec ')'
+    {
+	cclerical_id_t v;
+	if (!lookup_var(p, $1, &v, &yylloc, 0))
+		YYERROR;
+	struct cclerical_decl *d = p->decls.data[v];
+	if (d->type != CCLERICAL_DECL_FUN) {
+		cclerical_error(&yylloc, p, yyscanner,
+		                "'%s' does not identify a function\n", d->id);
+		YYERROR;
+	}
+	if (d->fun.arguments.valid != $3.valid) {
+		cclerical_error(&yylloc, p, yyscanner,
+		                "in function-call to %s: number of arguments "
+		                "mismatch: passed: %zu, declared with: %zu\n",
+		                d->id, $3.valid, d->fun.arguments.valid);
+		YYERROR;
+	}
+	for (size_t i=0; i<$3.valid; i++) {
+		struct cclerical_expr *e = $3.data[i];
+		cclerical_id_t param = (uintptr_t)d->fun.arguments.data[i];
+		struct cclerical_decl *dparam = p->decls.data[param];
+		if (dparam->var.type != e->result_type)
+			continue;
+		static const char *const types[] = {
+			"Unit", "Bool", "Int", "Real",
+		};
+		cclerical_error(&yylloc, p, yyscanner,
+		                "in function-call to %s: type mismatch of "
+		                "argument %zu: exprected %s, expression is of "
+		                "type %s", d->id, types[dparam->var.type],
+		                types[e->result_type]);
+		YYERROR;
+	}
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_FUN_CALL);
+	$$->fun_call.fun = v;
+	$$->fun_call.params = $3;
+	EXPR_NEW($$);
+    }
   | IDENT
     {
 	cclerical_id_t v;
@@ -256,6 +294,22 @@ expr
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_CNST);
 	$$->cnst = $1;
 	EXPR_NEW($$);
+    }
+
+fun_call_param_spec
+  : %empty           { cclerical_vector_init(&$$); }
+  | fun_call_params
+
+fun_call_params
+  : expr
+    {
+	cclerical_vector_init(&$$);
+	cclerical_vector_add(&$$, $1);
+    }
+  | fun_call_params ',' expr
+    {
+	$$ = $1;
+	cclerical_vector_add(&$$, $3);
     }
 
 var_init
@@ -458,11 +512,14 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 		expr_t = e->decl_asgn.expr->result_type;
 		break;
 	case CCLERICAL_EXPR_VAR: {
-		const struct cclerical_var *v = p->vars.data[e->var];
-		expr_t = v->type;
+		const struct cclerical_decl *v = p->decls.data[e->var];
+		expr_t = v->var.type;
 		break;
-	default:
-		abort();
+	}
+	case CCLERICAL_EXPR_FUN_CALL: {
+		const struct cclerical_decl *f = p->decls.data[e->fun_call.fun];
+		expr_t = cclerical_prog_type(f->fun.body);
+		break;
 	}
 	}
 	cclerical_type_set_t convertible_to = super_types(expr_t);

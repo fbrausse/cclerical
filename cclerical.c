@@ -74,6 +74,12 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 {
 	switch (e->type) {
 	case CCLERICAL_EXPR_VAR: break;
+	case CCLERICAL_EXPR_FUN_CALL:
+		for (size_t i=0; i<e->fun_call.params.valid; i++) {
+			struct cclerical_expr *f = e->fun_call.params.data[i];
+			cclerical_expr_destroy(f);
+		}
+		break;
 	case CCLERICAL_EXPR_CNST:
 		cclerical_constant_fini(&e->cnst);
 		break;
@@ -145,29 +151,9 @@ void cclerical_cases_fini(const struct cclerical_vector *c)
 	cclerical_vector_fini(c);
 }
 
-struct cclerical_var * cclerical_var_create(char *id, enum cclerical_type type)
-{
-	struct cclerical_var v = { id, type };
-	return memdup(&v, sizeof(v));
-}
-
-void cclerical_var_destroy(struct cclerical_var *v)
-{
-	free(v->id);
-	free(v);
-}
-
 void cclerical_scope_fini(const struct cclerical_scope *s)
 {
 	cclerical_vector_fini(&s->var_idcs);
-}
-
-struct cclerical_fun * cclerical_fun_create(char *id,
-                                            struct cclerical_vector *arguments,
-                                            struct cclerical_prog *body)
-{
-	struct cclerical_fun fun = { id, *arguments, body };
-	return memdup(&fun, sizeof(fun));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -188,7 +174,7 @@ const int cclerical_parser_var_lookup0(const struct cclerical_parser *p,
 	const struct cclerical_vector *vi = &s->scope.var_idcs;
 	for (size_t i=0; i<vi->valid; i++) {
 		size_t idx = (uintptr_t)vi->data[i];
-		const struct cclerical_var *v = p->vars.data[idx];
+		const struct cclerical_decl *v = p->decls.data[idx];
 		if (!strcmp(v->id, id)) {
 			*ridx = idx;
 			return 1;
@@ -203,17 +189,47 @@ int cclerical_parser_var_lookup(struct cclerical_parser *p, const char *id,
 	return cclerical_parser_var_lookup0(p, &p->scope, id, v, rw);
 }
 
-int cclerical_parser_new_var(struct cclerical_parser *p, char *id,
-                            enum cclerical_type type, cclerical_id_t *v)
+static int cclerical_parser_new_decl(struct cclerical_parser *p,
+                                     const struct cclerical_decl *decl,
+                                     cclerical_id_t *v)
 {
 	cclerical_id_t exists;
-	if (cclerical_parser_var_lookup(p, id, &exists, 0))
+	if (cclerical_parser_var_lookup(p, decl->id, &exists, 0))
 		return EEXIST;
-	size_t idx = p->vars.valid;
-	cclerical_vector_add(&p->vars, cclerical_var_create(id, type));
+	size_t idx = p->decls.valid;
+	cclerical_vector_add(&p->decls, memdup(decl, sizeof(*decl)));
 	cclerical_vector_add(&p->scope.scope.var_idcs, (void *)(uintptr_t)idx);
-	*v = idx;
+	if (v)
+		*v = idx;
 	return 0;
+}
+
+int cclerical_parser_new_var(struct cclerical_parser *p, char *id,
+                             enum cclerical_type type, cclerical_id_t *v)
+{
+	struct cclerical_decl d = {
+		.type = CCLERICAL_DECL_VAR,
+		.id = id,
+		.var = {
+			.type = type,
+		},
+	};
+	return cclerical_parser_new_decl(p, &d, v);
+}
+
+int cclerical_parser_new_fun(struct cclerical_parser *p,
+                             char *id, struct cclerical_vector arguments,
+                             struct cclerical_prog *body, cclerical_id_t *v)
+{
+	struct cclerical_decl d = {
+		.type = CCLERICAL_DECL_FUN,
+		.id = id,
+		.fun = {
+			.arguments = arguments,
+			.body = body,
+		},
+	};
+	return cclerical_parser_new_decl(p, &d, v);
 }
 
 void cclerical_parser_open_scope(struct cclerical_parser *p)
@@ -234,6 +250,20 @@ struct cclerical_scope cclerical_parser_close_scope(struct cclerical_parser *p)
 	return scope;
 }
 
+void cclerical_decl_destroy(struct cclerical_decl *d)
+{
+	free(d->id);
+	switch (d->type) {
+	case CCLERICAL_DECL_VAR:
+		break;
+	case CCLERICAL_DECL_FUN:
+		cclerical_vector_fini(&d->fun.arguments);
+		cclerical_prog_destroy(d->fun.body);
+		break;
+	}
+	free(d);
+}
+
 void cclerical_parser_fini(struct cclerical_parser *p)
 {
 	while (p->scope.parent) {
@@ -241,11 +271,11 @@ void cclerical_parser_fini(struct cclerical_parser *p)
 		cclerical_scope_fini(&sc);
 	}
 	cclerical_scope_fini(&p->scope.scope);
-	for (size_t i=0; i<p->vars.valid; i++) {
-		struct cclerical_var *v = p->vars.data[i];
-		cclerical_var_destroy(v);
+	for (size_t i=0; i<p->decls.valid; i++) {
+		struct cclerical_decl *d = p->decls.data[i];
+		cclerical_decl_destroy(d);
 	}
-	cclerical_vector_fini(&p->vars);
+	cclerical_vector_fini(&p->decls);
 	if (p->prog)
 		cclerical_prog_destroy(p->prog);
 }

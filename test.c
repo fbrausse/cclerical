@@ -61,6 +61,13 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 	case CCLERICAL_EXPR_VAR:
 		fprintf(stderr, "%*svar #%zu\n", lvl, "", e->var);
 		break;
+	case CCLERICAL_EXPR_FUN_CALL:
+		fprintf(stderr, "%*sfun #%zu\n", lvl, "", e->fun_call.fun);
+		for (size_t i=0; i<e->fun_call.params.valid; i++) {
+			fprintf(stderr, "%*s param %zu:\n", lvl, "", i);
+			pexpr(e->fun_call.params.data[i], lvl+2);
+		}
+		break;
 	case CCLERICAL_EXPR_LIM:
 		fprintf(stderr, "%*sseq_idx: #%zu in seq:\n", lvl, "",
 		        e->lim.seq_idx);
@@ -122,17 +129,17 @@ static void pprog(const struct cclerical_prog *p, int lvl)
 #include <iRRAM.h>\n\
 \n\
 void compute()\n\
-{\n\
+{\
 "
-#define IRRAM_FOOTER "\n\
+#define IRRAM_FOOTER "\
 }\n\
 "
 
 static void export_irram(const struct cclerical_prog *p,
-                         const struct cclerical_vector *vars)
+                         const struct cclerical_vector *decls)
 {
 	printf("%s\n", IRRAM_HEADER);
-	printf("\tREAL vars[%zu];\n", vars->valid);
+//	printf("\tREAL vars[%zu];\n", decls->valid);
 	struct cclerical_vector blocks = CCLERICAL_VECTOR_INIT;
 	for (size_t i=0; i<p->stmts.valid; i++) {
 		struct cclerical_stmt *s = p->stmts.data[i];
@@ -206,7 +213,7 @@ Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 	}
 
 	pprog(cp, 0);
-	export_irram(cp, &p.vars);
+	export_irram(cp, &p.decls);
 
 done:
 	if (cp)
