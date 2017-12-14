@@ -46,6 +46,8 @@ struct cclerical_constant {
 	};
 };
 
+void cclerical_constant_fini(struct cclerical_constant *c);
+
 struct cclerical_var {
 	char *id;
 	enum cclerical_type type;

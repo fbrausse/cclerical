@@ -57,20 +57,25 @@ enum cclerical_type cclerical_prog_type(const struct cclerical_prog *p)
 	return last->expr->result_type;
 }
 
+void cclerical_constant_fini(struct cclerical_constant *c)
+{
+	switch (c->lower_type) {
+	case CCLERICAL_TYPE_UNIT:
+	case CCLERICAL_TYPE_BOOL:
+		break;
+	case CCLERICAL_TYPE_INT:
+	case CCLERICAL_TYPE_REAL:
+		free(c->numeric.str);
+		break;
+	}
+}
+
 void cclerical_expr_destroy(struct cclerical_expr *e)
 {
 	switch (e->type) {
 	case CCLERICAL_EXPR_VAR: break;
 	case CCLERICAL_EXPR_CNST:
-		switch (e->cnst.lower_type) {
-		case CCLERICAL_TYPE_UNIT:
-		case CCLERICAL_TYPE_BOOL:
-			break;
-		case CCLERICAL_TYPE_INT:
-		case CCLERICAL_TYPE_REAL:
-			free(e->cnst.numeric.str);
-			break;
-		}
+		cclerical_constant_fini(&e->cnst);
 		break;
 	case CCLERICAL_EXPR_CASE: cclerical_cases_fini(&e->cases); break;
 	case CCLERICAL_EXPR_DECL_ASGN:
