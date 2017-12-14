@@ -11,8 +11,13 @@
 #define YYMAXDEPTH LONG_MAX
 #define YYLTYPE_IS_TRIVIAL 1
 
-static void cclerical_error(YYLTYPE *locp, struct cclerical_parser *p,
-                           void *scanner, const char *fmt, ...);
+static void cclerical_error0(YYLTYPE *locp, struct cclerical_parser *p,
+                             void *scanner, const char *file, int lineno,
+                             const char *fmt, ...);
+
+#define cclerical_error(locp,p,scanner,...) \
+	cclerical_error0(locp, p, scanner, __FILE__, __LINE__, __VA_ARGS__)
+
 //int cclerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
 
 static int lookup_var(struct cclerical_parser *p, char *id,
@@ -212,8 +217,8 @@ var_init
 	int r = cclerical_parser_new_var(p, $2, $6, &v);
 	if (r) {
 		cclerical_error(&yylloc, p, yyscanner,
-		               "error defining variable '%s': %s\n", $2,
-		               strerror(r));
+		                "error defining variable '%s': %s\n", $2,
+		                strerror(r));
 		free($2);
 		YYERROR;
 	}
@@ -230,8 +235,8 @@ lim_init
 	int r = cclerical_parser_new_var(p, $2, CCLERICAL_TYPE_INT, &$$);
 	if (r) {
 		cclerical_error(&yylloc, p, yyscanner,
-		               "error declaring variable '%s' in lim: %s\n",
-		               strerror(r));
+		                "error declaring variable '%s' in lim: %s\n",
+		                strerror(r));
 		free($2);
 		YYERROR;
 	}
@@ -258,10 +263,17 @@ type
 
 %%
 
-static inline void cclerical_error(YYLTYPE *locp, struct cclerical_parser *p,
-                                  void *scanner, const char *fmt, ...)
+static inline void cclerical_error0(YYLTYPE *locp, struct cclerical_parser *p,
+                                    void *scanner, const char *file, int lineno,
+                                    const char *fmt, ...)
 {
-	fprintf(stderr, "error at %d-%d:%d-%d: ",
+	fprintf(stderr,
+#ifndef NDEBUG
+	        "%s:%d: error at %d-%d:%d-%d: ",
+	        file, lineno,
+#else
+	        "error at %d-%d:%d-%d: ",
+#endif
 	        locp->first_line, locp->last_line,
 	        locp->first_column, locp->last_column);
 	va_list ap;
@@ -277,9 +289,9 @@ static int lookup_var(struct cclerical_parser *p, char *id,
 	int r = cclerical_parser_var_lookup(p, id, v, rw);
 	if (!r) {
 		cclerical_error(locp, p, NULL,
-		               "variable '%s' is %s in this context", id,
-		               rw && cclerical_parser_var_lookup(p, id, v, 0)
-		               ? "read-only" : "not defined");
+		                "variable '%s' is %s in this context", id,
+		                rw && cclerical_parser_var_lookup(p, id, v, 0)
+		                ? "read-only" : "not defined");
 		free(id);
 	}
 	return r;
