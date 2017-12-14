@@ -180,7 +180,7 @@ void cclerical_parser_init(struct cclerical_parser *p)
 static
 const int cclerical_parser_var_lookup0(const struct cclerical_parser *p,
                                       const struct cclerical_parser_scope *s,
-                                      const char *id, cclerical_var_t *ridx,
+                                      const char *id, cclerical_id_t *ridx,
                                       int rw)
 {
 	if (!s)
@@ -198,15 +198,15 @@ const int cclerical_parser_var_lookup0(const struct cclerical_parser *p,
 }
 
 int cclerical_parser_var_lookup(struct cclerical_parser *p, const char *id,
-                               cclerical_var_t *v, int rw)
+                               cclerical_id_t *v, int rw)
 {
 	return cclerical_parser_var_lookup0(p, &p->scope, id, v, rw);
 }
 
 int cclerical_parser_new_var(struct cclerical_parser *p, char *id,
-                            enum cclerical_type type, cclerical_var_t *v)
+                            enum cclerical_type type, cclerical_id_t *v)
 {
-	cclerical_var_t exists;
+	cclerical_id_t exists;
 	if (cclerical_parser_var_lookup(p, id, &exists, 0))
 		return EEXIST;
 	size_t idx = p->vars.valid;

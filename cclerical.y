@@ -21,7 +21,7 @@ static void cclerical_error0(YYLTYPE *locp, struct cclerical_parser *p,
 //int cclerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
 
 static int lookup_var(struct cclerical_parser *p, char *id,
-                      cclerical_var_t *v, YYLTYPE *locp, int rw);
+                      cclerical_id_t *v, YYLTYPE *locp, int rw);
 
 static const unsigned TYPES_ALL = 1U << CCLERICAL_TYPE_UNIT
                                 | 1U << CCLERICAL_TYPE_BOOL
@@ -50,7 +50,7 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 	struct cclerical_stmt *stmt;
 	struct cclerical_prog *prog;
 	enum cclerical_type type;
-	cclerical_var_t varref;
+	cclerical_id_t varref;
 	char *ident;
 	struct cclerical_vector cases;
 	struct cclerical_constant cnst;
@@ -180,7 +180,7 @@ prog
 stmt
   : IDENT TK_ASGN expr
     {
-	cclerical_var_t v;
+	cclerical_id_t v;
 	if (!lookup_var(p, $1, &v, &yylloc, 1))
 		YYERROR;
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_ASGN);
@@ -244,7 +244,7 @@ expr
     }
   | IDENT
     {
-	cclerical_var_t v;
+	cclerical_id_t v;
 	if (!lookup_var(p, $1, &v, &yylloc, 0))
 		YYERROR;
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_VAR);
@@ -262,7 +262,7 @@ var_init
   : TK_VAR IDENT TK_ASGN expr ':' type
     {
 	cclerical_parser_open_scope(p);
-	cclerical_var_t v;
+	cclerical_id_t v;
 	int r = cclerical_parser_new_var(p, $2, $6, &v);
 	if (r) {
 		cclerical_error(&yylloc, p, yyscanner,
@@ -333,7 +333,7 @@ static inline void cclerical_error0(YYLTYPE *locp, struct cclerical_parser *p,
 }
 
 static int lookup_var(struct cclerical_parser *p, char *id,
-                      cclerical_var_t *v, YYLTYPE *locp, int rw)
+                      cclerical_id_t *v, YYLTYPE *locp, int rw)
 {
 	int r = cclerical_parser_var_lookup(p, id, v, rw);
 	if (!r) {
