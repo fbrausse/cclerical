@@ -25,4 +25,4 @@ cclerical.lex.c cclerical.lex.h: cclerical.l
 	$(LEX) $(LEXFLAGS) -o cclerical.lex.c --header-file=cclerical.lex.h $<
 
 clean:
-	$(RM) test test.o cclerical.tab.* cclerical.lex.* cclerical.o
+	$(RM) test test.o cclerical.tab.* cclerical.lex.* cclerical.o cclerical.output

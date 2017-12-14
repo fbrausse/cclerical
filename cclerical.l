@@ -27,15 +27,16 @@ static void update_loc(YYLTYPE *loc, const char *s)
 		}
 }
 
-static void cnst_init_bool(struct cclerical_constant *c, int v)
+static void cnst_bool(struct cclerical_constant *c, int v)
 {
 	c->lower_type = CCLERICAL_TYPE_BOOL;
 	c->boolean = v;
 }
 
-static void cnst_init_int(struct cclerical_constant *c, const char *s, int base)
+static void cnst_num(struct cclerical_constant *c, const char *s, int base,
+                     enum cclerical_type ltype)
 {
-	c->lower_type = CCLERICAL_TYPE_INT;
+	c->lower_type = ltype;
 	c->numeric.str = ccl_strdup(s);
 	c->numeric.base = base;
 }
@@ -56,9 +57,21 @@ INT_HEX		[+-]?0[xX][0-9a-fA-F]+
 INT_BIN		[+-]?0[bB][0-1]+
 INT_OCT		[+-]?0(0|[1-7][0-9]*)
 
+FRAC_DEC	[+-]?((0|[1-9][0-9]*)\.|\.[0-9])[0-9]*([eE][+-]?[0-9]+)?
+FRAC_HEX	[+-]?0[xX]([0-9a-fA-F]+\.|\.[0-9a-fA-F])[0-9a-fA-F]*([eE][+-]?[0-9a-fA-F]+)?
+
 WHITE		[ \t\f\v\r\n]
 
+%x comment
+
 %%
+
+		size_t comment_depth;
+
+<INITIAL>\(\*	{ BEGIN(comment); comment_depth = 1; }
+<comment>\(\*	{ comment_depth++; }
+<comment>\*\)	{ if (!--comment_depth) BEGIN(INITIAL); }
+<comment>[^(*]|\([^*]|\*[^)]	;
 
 if		{ return TK_IF; }
 then		{ return TK_THEN; }
@@ -74,12 +87,12 @@ do		{ return TK_DO; }
 function	{ return TK_FUN; }
 
 false		{
-			cnst_init_bool(&yylval->cnst, 0);
+			cnst_bool(&yylval->cnst, 0);
 			return CONSTANT;
 		}
 
 true		{
-			cnst_init_bool(&yylval->cnst, 1);
+			cnst_bool(&yylval->cnst, 1);
 			return CONSTANT;
 		}
 
@@ -98,22 +111,32 @@ Real		{ return TK_REAL; }
 
 {IDENT}		{ yylval->ident = ccl_strdup(yytext); return IDENT; }
 
+{FRAC_DEC}	{
+			cnst_num(&yylval->cnst, yytext, 10, CCLERICAL_TYPE_REAL);
+			return CONSTANT;
+		}
+
+{FRAC_HEX}	{
+			cnst_num(&yylval->cnst, yytext, 16, CCLERICAL_TYPE_REAL);
+			return CONSTANT;
+		}
+
 {INT_DEC}	{
-			cnst_init_int(&yylval->cnst, yytext, 10);
+			cnst_num(&yylval->cnst, yytext, 10, CCLERICAL_TYPE_INT);
 			return CONSTANT;
 		}
 
 {INT_HEX}	{
-			cnst_init_int(&yylval->cnst, yytext, 16);
+			cnst_num(&yylval->cnst, yytext, 16, CCLERICAL_TYPE_INT);
 			return CONSTANT;
 		}
 
 {INT_BIN}	{
-			cnst_init_int(&yylval->cnst, yytext, 2);
+			cnst_num(&yylval->cnst, yytext, 2, CCLERICAL_TYPE_INT);
 			return CONSTANT;
 		}
 
 {INT_OCT}	{
-			cnst_init_int(&yylval->cnst, yytext, 8);
+			cnst_num(&yylval->cnst, yytext, 8, CCLERICAL_TYPE_INT);
 			return CONSTANT;
 		}
