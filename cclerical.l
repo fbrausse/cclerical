@@ -32,7 +32,7 @@ static void update_loc(YYLTYPE *loc, const char *s)
 %option prefix="cclerical_"
 %option stack
 
-IDENT		[a-z_][a-zA-Z0-9_]*
+IDENT		[a-z_][a-zA-Z0-9_]*'*
 INT_DEC		[+-]?(0|[1-9][0-9]*)
 INT_HEX		[+-]?0[xX][0-9a-fA-F]+
 INT_BIN		[+-]?0[bB][0-1]+
