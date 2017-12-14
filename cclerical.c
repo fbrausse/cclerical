@@ -49,79 +49,12 @@ struct cclerical_expr * cclerical_expr_create_op(enum cclerical_op op,
 	return e;
 }
 
-static enum cclerical_type cclerical_prog_type(const struct cclerical_prog *p)
+enum cclerical_type cclerical_prog_type(const struct cclerical_prog *p)
 {
 	struct cclerical_stmt *last = cclerical_vector_last(&p->stmts);
 	if (!last || last->type != CCLERICAL_STMT_EXPR)
 		return CCLERICAL_TYPE_UNIT;
 	return last->expr->result_type;
-}
-
-static int is_binary_op(enum cclerical_op op)
-{
-	return op != CCLERICAL_OP_UMINUS;
-}
-
-void cclerical_expr_compute_types(const struct cclerical_vector *vars,
-                                 struct cclerical_expr *e,
-                                 cclerical_type_set_t *types,
-                                 cclerical_type_set_t *allowed)
-{
-	*types = 0;
-	switch (e->type) {
-	case CCLERICAL_EXPR_CASE:
-		for (size_t i=0; i<e->cases.valid; i+=2)
-			*types |= 1U << cclerical_prog_type(e->cases.data[i+1]);
-		*allowed = 1U << CCLERICAL_TYPE_BOOL
-		         | 1U << CCLERICAL_TYPE_INT
-		         | 1U << CCLERICAL_TYPE_REAL;
-		break;
-	case CCLERICAL_EXPR_CNST:
-		*types = 1U << e->cnst.lower_type;
-		*allowed = 1U << CCLERICAL_TYPE_BOOL
-		         | 1U << CCLERICAL_TYPE_INT
-		         | 1U << CCLERICAL_TYPE_REAL;
-		break;
-	case CCLERICAL_EXPR_DECL_ASGN:
-		*types = 1U << cclerical_prog_type(e->decl_asgn.prog);
-		*allowed = 1U << CCLERICAL_TYPE_BOOL
-		         | 1U << CCLERICAL_TYPE_INT
-		         | 1U << CCLERICAL_TYPE_REAL;
-		break;
-	case CCLERICAL_EXPR_LIM:
-		*types = 1U << cclerical_prog_type(e->lim.seq);
-		*allowed = 1U << CCLERICAL_TYPE_REAL;
-		break;
-	case CCLERICAL_EXPR_OP:
-		*types = 1U << e->op.arg1->result_type;
-		if (is_binary_op(e->op.op))
-			*types |= 1U << e->op.arg2->result_type;
-		switch (e->op.op) {
-		case CCLERICAL_OP_PLUS:
-		case CCLERICAL_OP_MINUS:
-		case CCLERICAL_OP_MUL:
-		case CCLERICAL_OP_DIV:
-		case CCLERICAL_OP_EXP:
-		case CCLERICAL_OP_UMINUS:
-			*allowed = 1U << CCLERICAL_TYPE_INT
-			         | 1U << CCLERICAL_TYPE_REAL;
-			break;
-		case CCLERICAL_OP_LT:
-		case CCLERICAL_OP_GT:
-		case CCLERICAL_OP_NE:
-			*allowed = 1U << CCLERICAL_TYPE_BOOL;
-			break;
-		}
-		break;
-	case CCLERICAL_EXPR_VAR: {
-		const struct cclerical_var *v = vars->data[e->var];
-		*types = 1U << v->type;
-		*allowed = 1U << CCLERICAL_TYPE_BOOL
-		         | 1U << CCLERICAL_TYPE_INT
-		         | 1U << CCLERICAL_TYPE_REAL;
-		break;
-	}
-	}
 }
 
 void cclerical_expr_destroy(struct cclerical_expr *e)

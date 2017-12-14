@@ -105,11 +105,6 @@ struct cclerical_expr * cclerical_expr_create_op(enum cclerical_op op,
                                                struct cclerical_expr *b);
 void                   cclerical_expr_destroy(struct cclerical_expr *e);
 
-void cclerical_expr_compute_types(const struct cclerical_vector *vars,
-                                 struct cclerical_expr *e,
-                                 cclerical_type_set_t *types,
-                                 cclerical_type_set_t *allowed);
-
 enum cclerical_stmt_type {
 	CCLERICAL_STMT_SKIP,
 	CCLERICAL_STMT_WHILE,
@@ -148,6 +143,7 @@ struct cclerical_prog {
 
 struct cclerical_prog * cclerical_prog_create(void);
 void                   cclerical_prog_destroy(struct cclerical_prog *p);
+enum cclerical_type cclerical_prog_type(const struct cclerical_prog *p);
 
 struct cclerical_case {
 	struct cclerical_expr *cond;

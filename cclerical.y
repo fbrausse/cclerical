@@ -182,7 +182,7 @@ expr
     {
 	$$ = $1;
 	$$->decl_asgn.prog = $3;
-	EXPR($$, TYPES_ALL);
+	EXPR($$, 1U << $$->result_type);
 	free(cclerical_parser_close_scope(p).var_idcs.data);
     }
   | IDENT
@@ -216,7 +216,8 @@ var_init
 	}
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
 	$$->decl_asgn.var  = v;
-	EXPR($$->decl_asgn.expr = $4, 1U << $6);
+	$$->decl_asgn.expr = $4;
+	$$->result_type = $6;
     }
 
 lim_init
@@ -281,24 +282,21 @@ static int lookup_var(struct cclerical_parser *p, char *id,
 	return r;
 }
 
-static int min_super_type(cclerical_type_set_t t, enum cclerical_type *res)
+static int max_sub_type(cclerical_type_set_t t, enum cclerical_type *res)
 {
 	if (!t)
 		return 0;
 	if (t & (1U << CCLERICAL_TYPE_UNIT)) {
-		if (~t & ~(1U << CCLERICAL_TYPE_UNIT))
+		if (t & ~(1U << CCLERICAL_TYPE_UNIT))
 			return 0;
 		*res = CCLERICAL_TYPE_UNIT;
-		return 1;
-	}
-	if (t & (1U << CCLERICAL_TYPE_BOOL)) {
-		if (~t & ~(1U << CCLERICAL_TYPE_BOOL))
+	} else if (t & (1U << CCLERICAL_TYPE_BOOL)) {
+		if (t & ~(1U << CCLERICAL_TYPE_BOOL))
 			return 0;
 		*res = CCLERICAL_TYPE_BOOL;
-		return 1;
-	}
-	*res = (t & (1U << CCLERICAL_TYPE_REAL)) ? CCLERICAL_TYPE_REAL
-	                                        : CCLERICAL_TYPE_INT;
+	} else
+		*res = (t & (1U << CCLERICAL_TYPE_INT)) ? CCLERICAL_TYPE_INT
+		                                        : CCLERICAL_TYPE_REAL;
 	return 1;
 }
 
@@ -310,44 +308,112 @@ static cclerical_type_set_t super_types(enum cclerical_type t)
 	return res;
 }
 
-static struct cclerical_expr * expr(struct cclerical_parser *p,
-                                   struct cclerical_expr *e,
-                                   cclerical_type_set_t forced,
-                                   YYLTYPE *locp)
+static int unique_t(cclerical_type_set_t s, enum cclerical_type *res)
 {
-	cclerical_type_set_t types, allowed;
-	cclerical_expr_compute_types(&p->vars, e, &types, &allowed);
-	enum cclerical_type type_min;
-	if (!min_super_type(types, &type_min)) {
-		cclerical_error(locp, p, NULL,
-		               "no common super type in expr combined of types "
-		               "0x%x", types);
-		goto err;
+	switch (s) {
+	case 1U << CCLERICAL_TYPE_UNIT: *res = CCLERICAL_TYPE_UNIT; return 1;
+	case 1U << CCLERICAL_TYPE_BOOL: *res = CCLERICAL_TYPE_BOOL; return 1;
+	case 1U << CCLERICAL_TYPE_INT : *res = CCLERICAL_TYPE_INT ; return 1;
+	case 1U << CCLERICAL_TYPE_REAL: *res = CCLERICAL_TYPE_REAL; return 1;
+	default: return 0;
 	}
-	if (!(allowed & forced)) {
-		cclerical_error(locp, p, NULL,
-		               "expr-allowed types 0x%x don't intersect forced "
-		               "types 0x%x", allowed, forced);
-		goto err;
+}
+
+static int is_binary_op(enum cclerical_op op)
+{
+	return op != CCLERICAL_OP_UMINUS;
+}
+
+static int is_arith_op(enum cclerical_op op)
+{
+	switch (op) {
+	case CCLERICAL_OP_PLUS:
+	case CCLERICAL_OP_MINUS:
+	case CCLERICAL_OP_MUL:
+	case CCLERICAL_OP_DIV:
+	case CCLERICAL_OP_EXP:
+	case CCLERICAL_OP_UMINUS:
+		return 1;
+	case CCLERICAL_OP_LT:
+	case CCLERICAL_OP_GT:
+	case CCLERICAL_OP_NE:
+		return 0;
 	}
-	allowed &= forced;
-	cclerical_type_set_t castable_to = super_types(type_min);
-	if (!(allowed & castable_to)) {
-		cclerical_error(locp, p, NULL,
-		               "allowed types 0x%x don't intersect castable "
-		               "types 0x%x of expr", allowed, castable_to);
-		goto err;
+	return -1;
+}
+
+static struct cclerical_expr * expr(struct cclerical_parser *p,
+                                    struct cclerical_expr *e,
+                                    cclerical_type_set_t forced,
+                                    YYLTYPE *locp)
+{
+	enum cclerical_type expr_t;
+	switch (e->type) {
+	case CCLERICAL_EXPR_OP: {
+		cclerical_type_set_t arg_t = 1U << e->op.arg1->result_type;
+		if (!is_binary_op(e->op.op))
+			arg_t |= 1U << e->op.arg2->result_type;
+		if (arg_t & (1U << CCLERICAL_TYPE_UNIT)) {
+			cclerical_error(locp, p, NULL, "operand of Unit type");
+			return NULL;
+		}
+		if (!is_arith_op(e->op.op)) {
+			if ((e->op.op == CCLERICAL_OP_LT ||
+			     e->op.op == CCLERICAL_OP_GT) &&
+			    (arg_t & (1U << CCLERICAL_TYPE_BOOL))) {
+				cclerical_error(locp, p, NULL,
+						"comparison with Boolean type");
+				return NULL;
+			}
+			expr_t = CCLERICAL_TYPE_BOOL;
+		} else if (!unique_t(arg_t, &expr_t)) {
+			cclerical_error(locp, p, NULL,
+			                "mixed-type op expression");
+			return NULL;
+		}
+		break;
 	}
-	allowed &= castable_to;
-	if (!min_super_type(allowed, &e->result_type)) {
+	case CCLERICAL_EXPR_LIM:
+		expr_t = cclerical_prog_type(e->lim.seq);
+		break;
+	case CCLERICAL_EXPR_CASE: {
+		cclerical_type_set_t arg_t = 0;
+		for (size_t i=0; i<e->cases.valid; i+=2)
+			arg_t |= 1U << cclerical_prog_type(e->cases.data[i+1]);
+		if (!unique_t(arg_t, &expr_t)) {
+			cclerical_error(locp, p, NULL,
+			                "mixed-type case expression");
+			return NULL;
+		}
+		break;
+	}
+	case CCLERICAL_EXPR_CNST:
+		expr_t = e->cnst.lower_type;
+		break;
+	case CCLERICAL_EXPR_DECL_ASGN:
+		expr_t = e->decl_asgn.expr->result_type;
+		break;
+	case CCLERICAL_EXPR_VAR: {
+		const struct cclerical_var *v = p->vars.data[e->var];
+		expr_t = v->type;
+		break;
+	}
+	}
+	cclerical_type_set_t convertible_to = super_types(expr_t);
+	cclerical_type_set_t common = convertible_to & forced;
+	if (!common) {
 		cclerical_error(locp, p, NULL,
-		               "no common super type in 0x%x for complete expr",
-		               allowed);
-		goto err;
+		                "no common type in expr-super-types 0x%x and "
+		                "forced types 0x%x\n", convertible_to, forced);
+		return NULL;
+	}
+	if (!max_sub_type(common, &e->result_type)) {
+		cclerical_error(locp, p, NULL,
+		                "no common sub-type in 0x%x for complete expr",
+		                common);
+		return NULL;
 	}
 	return e;
-err:
-	return NULL;
 }
 
 static struct cclerical_expr * expr_new(struct cclerical_parser *p,
