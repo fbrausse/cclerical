@@ -3,3 +3,4 @@
 *.lex.h
 *.tab.c
 *.tab.h
+*.output

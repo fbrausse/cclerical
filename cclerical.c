@@ -10,11 +10,6 @@ const char *const CCLERICAL_TYPE_STR[] = {
 	[CCLERICAL_TYPE_REAL] = "Real"
 };
 
-static inline void * memdup(const void *src, size_t n)
-{
-	return memcpy(malloc(n), src, n);
-}
-
 static inline void cclerical_vector_ensure_size(struct cclerical_vector *v, size_t n)
 {
 	if (v->size < n &&
@@ -173,11 +168,10 @@ void cclerical_parser_init(struct cclerical_parser *p)
 	memset(p, 0, sizeof(*p));
 }
 
-static
-const int cclerical_parser_var_lookup0(const struct cclerical_parser *p,
-                                      const struct cclerical_parser_scope *s,
-                                      const char *id, cclerical_id_t *ridx,
-                                      int rw)
+static int cclerical_parser_var_lookup0(const struct cclerical_parser *p,
+                                        const struct cclerical_parser_scope *s,
+                                        const char *id, cclerical_id_t *ridx,
+                                        int rw)
 {
 	if (!s)
 		return 0;

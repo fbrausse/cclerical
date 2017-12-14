@@ -11,12 +11,11 @@
 #define YYMAXDEPTH LONG_MAX
 #define YYLTYPE_IS_TRIVIAL 1
 
-static void cclerical_error0(YYLTYPE *locp, const struct cclerical_parser *p,
-                             void *scanner, const char *file, int lineno,
+static void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
                              const char *fmt, ...);
 
-#define cclerical_error(locp,p,scanner,...) \
-	cclerical_error0(locp, p, scanner, __FILE__, __LINE__, __VA_ARGS__)
+#define ERROR(locp,...) cclerical_error0(locp, __FILE__, __LINE__, __VA_ARGS__)
+#define cclerical_error(locp,p,scanner,...) ERROR(locp, __VA_ARGS__)
 
 //int cclerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
 
@@ -160,9 +159,8 @@ fun_decl_param
     {
 	int r = cclerical_parser_new_var(p, $2, $1, &$$);
 	if (r) {
-		cclerical_error(&yylloc, p, yyscanner,
-		                "error declaring function parameter '%s': %s\n",
-		                $2, strerror(r));
+		ERROR(&yylloc, "error declaring function parameter '%s': %s\n",
+		      $2, strerror(r));
 		free($2);
 		YYERROR;
 	}
@@ -215,8 +213,8 @@ stmt
     }
 
 expr
-  : expr '+' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_PLUS, $1, $3)); }
-  | expr '-' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_MINUS, $1, $3)); }
+  : expr '+' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_ADD, $1, $3)); }
+  | expr '-' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_SUB, $1, $3)); }
   | expr '*' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_MUL, $1, $3)); }
   | expr '/' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_DIV, $1, $3)); }
   | expr '^' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_EXP, $1, $3)); }
@@ -225,7 +223,7 @@ expr
   | expr TK_NE expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3)); }
   | '-' expr %prec UMINUS
     {
-	EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_UMINUS, $2, NULL));
+	EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NEG, $2, NULL));
     }
   | '(' expr ')'  { $$ = $2; }
   | TK_CASE cases TK_END
@@ -295,9 +293,8 @@ var_init
 	cclerical_id_t v;
 	int r = cclerical_parser_new_var(p, $2, $6, &v);
 	if (r) {
-		cclerical_error(&yylloc, p, yyscanner,
-		                "error defining variable '%s': %s\n", $2,
-		                strerror(r));
+		ERROR(&yylloc, "error defining variable '%s': %s\n",
+		      $2, strerror(r));
 		free($2);
 		YYERROR;
 	}
@@ -312,9 +309,8 @@ lim_init
 	cclerical_parser_open_scope(p);
 	int r = cclerical_parser_new_var(p, $2, CCLERICAL_TYPE_INT, &$$);
 	if (r) {
-		cclerical_error(&yylloc, p, yyscanner,
-		                "error declaring variable '%s' in lim: %s\n",
-		                $2, strerror(r));
+		ERROR(&yylloc, "error declaring variable '%s' in lim: %s\n",
+		      $2, strerror(r));
 		free($2);
 		YYERROR;
 	}
@@ -323,7 +319,7 @@ lim_init
 cases
   : expr TK_RARROW prog
     {
-	memset(&$$, 0, sizeof($$));
+	cclerical_vector_init(&$$);
 	cclerical_vector_add(&$$, $1);
 	cclerical_vector_add(&$$, $3);
     }
@@ -341,9 +337,7 @@ type
 
 %%
 
-static inline void cclerical_error0(YYLTYPE *locp,
-                                    const struct cclerical_parser *p,
-                                    void *scanner, const char *file, int lineno,
+static inline void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
                                     const char *fmt, ...)
 {
 	fprintf(stderr,
@@ -351,7 +345,7 @@ static inline void cclerical_error0(YYLTYPE *locp,
 	        "%s:%d: error at %d-%d:%d-%d: ",
 	        file, lineno,
 #else
-	        "error at %d-%d:%d-%d: ",
+	        "error at %d-%d.%d-%d: ",
 #endif
 	        locp->first_line, locp->last_line,
 	        locp->first_column, locp->last_column);
@@ -367,10 +361,9 @@ static int lookup_var(struct cclerical_parser *p, char *id,
 {
 	int r = cclerical_parser_var_lookup(p, id, v, rw);
 	if (!r) {
-		cclerical_error(locp, p, NULL,
-		                "variable '%s' is %s in this context", id,
-		                rw && cclerical_parser_var_lookup(p, id, v, 0)
-		                ? "read-only" : "not defined");
+		ERROR(locp, "variable '%s' is %s in this context", id,
+		      rw && cclerical_parser_var_lookup(p, id, v, 0)
+		      ? "read-only" : "not defined");
 		free(id);
 	}
 	return r;
@@ -415,18 +408,18 @@ static int unique_t(cclerical_type_set_t s, enum cclerical_type *res)
 
 static int is_binary_op(enum cclerical_op op)
 {
-	return op != CCLERICAL_OP_UMINUS;
+	return op != CCLERICAL_OP_NEG;
 }
 
 static int is_arith_op(enum cclerical_op op)
 {
 	switch (op) {
-	case CCLERICAL_OP_PLUS:
-	case CCLERICAL_OP_MINUS:
+	case CCLERICAL_OP_NEG:
+	case CCLERICAL_OP_ADD:
+	case CCLERICAL_OP_SUB:
 	case CCLERICAL_OP_MUL:
 	case CCLERICAL_OP_DIV:
 	case CCLERICAL_OP_EXP:
-	case CCLERICAL_OP_UMINUS:
 		return 1;
 	case CCLERICAL_OP_LT:
 	case CCLERICAL_OP_GT:
@@ -447,21 +440,18 @@ static int expr_super_types(const struct cclerical_parser *p,
 		if (!is_binary_op(e->op.op))
 			arg_t |= 1U << e->op.arg2->result_type;
 		if (arg_t & (1U << CCLERICAL_TYPE_UNIT)) {
-			cclerical_error(locp, p, NULL, "operand of Unit type");
+			ERROR(locp, "operand of Unit type");
+			return 0;
+		}
+		if ((e->op.op == CCLERICAL_OP_LT || e->op.op == CCLERICAL_OP_GT)
+		    && (arg_t & (1U << CCLERICAL_TYPE_BOOL))) {
+			ERROR(locp, "comparison with Boolean type");
 			return 0;
 		}
 		if (!is_arith_op(e->op.op)) {
-			if ((e->op.op == CCLERICAL_OP_LT ||
-			     e->op.op == CCLERICAL_OP_GT) &&
-			    (arg_t & (1U << CCLERICAL_TYPE_BOOL))) {
-				cclerical_error(locp, p, NULL,
-						"comparison with Boolean type");
-				return 0;
-			}
 			expr_t = CCLERICAL_TYPE_BOOL;
 		} else if (!unique_t(arg_t, &expr_t)) {
-			cclerical_error(locp, p, NULL,
-			                "mixed-type op expression");
+			ERROR(locp, "mixed-type op expression");
 			return 0;
 		}
 		break;
@@ -474,8 +464,7 @@ static int expr_super_types(const struct cclerical_parser *p,
 		for (size_t i=0; i<e->cases.valid; i+=2)
 			arg_t |= 1U << cclerical_prog_type(e->cases.data[i+1]);
 		if (!unique_t(arg_t, &expr_t)) {
-			cclerical_error(locp, p, NULL,
-			                "mixed-type case expression");
+			ERROR(locp, "mixed-type case expression");
 			return 0;
 		}
 		break;
@@ -511,15 +500,13 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 		return NULL;
 	cclerical_type_set_t common = convertible_to & forced;
 	if (!common) {
-		cclerical_error(locp, p, NULL,
-		                "no common type in expr-super-types 0x%x and "
-		                "forced types 0x%x\n", convertible_to, forced);
+		ERROR(locp, "no common type in expr-super-types 0x%x and "
+		            "forced types 0x%x", convertible_to, forced);
 		return NULL;
 	}
 	if (!max_sub_type(common, &e->result_type)) {
-		cclerical_error(locp, p, NULL,
-		                "no common sub-type in 0x%x for complete expr",
-		                common);
+		ERROR(locp, "no common sub-type in 0x%x for complete expr",
+		      common);
 		return NULL;
 	}
 	return e;
@@ -541,22 +528,18 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 {
 	cclerical_id_t v;
 	if (!lookup_var(p, id, &v, locp, 0)) {
-		cclerical_error(locp, p, NULL,
-		                "call to undeclared function identifier '%s'",
-		                id);
+		ERROR(locp, "call to undeclared function identifier '%s'", id);
 		return NULL;
 	}
 	struct cclerical_decl *d = p->decls.data[v];
 	if (d->type != CCLERICAL_DECL_FUN) {
-		cclerical_error(locp, p, NULL,
-		                "'%s' does not identify a function", d->id);
+		ERROR(locp, "'%s' does not identify a function", d->id);
 		return NULL;
 	}
 	if (d->fun.arguments.valid != params.valid) {
-		cclerical_error(locp, p, NULL,
-		                "in function-call to %s: number of arguments "
-		                "mismatch: passed: %zu, declared with: %zu",
-		                d->id, params.valid, d->fun.arguments.valid);
+		ERROR(locp, "in function-call to %s: number of arguments "
+		            "mismatch: passed: %zu, declared with: %zu",
+		      d->id, params.valid, d->fun.arguments.valid);
 		return NULL;
 	}
 	for (size_t i=0; i<params.valid; i++) {
@@ -565,12 +548,10 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 		struct cclerical_decl *dparam = p->decls.data[param];
 		if ((1U << dparam->var.type) & super_types(e->result_type))
 			continue;
-		cclerical_error(locp, p, NULL,
-		                "in function-call to %s: type mismatch of "
-		                "argument %zu: exprected %s, expression is of "
-		                "type %s", d->id,
-		                CCLERICAL_TYPE_STR[dparam->var.type],
-		                CCLERICAL_TYPE_STR[e->result_type]);
+		ERROR(locp, "in function-call to %s: type mismatch of argument "
+		            "%zu: exprected %s, expression is of type %s",
+		     d->id, CCLERICAL_TYPE_STR[dparam->var.type],
+		     CCLERICAL_TYPE_STR[e->result_type]);
 		return NULL;
 	}
 	struct cclerical_expr *e = cclerical_expr_create(CCLERICAL_EXPR_FUN_CALL);

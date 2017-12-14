@@ -11,6 +11,11 @@
 extern "C" {
 #endif
 
+static inline void * memdup(const void *src, size_t n)
+{
+	return memcpy(malloc(n), src, n);
+}
+
 struct cclerical_vector {
 	void **data;
 	size_t valid, size;
@@ -61,14 +66,14 @@ void cclerical_scope_fini(const struct cclerical_scope *s);
 struct cclerical_prog;
 
 enum cclerical_op {
-	CCLERICAL_OP_PLUS = '+',
-	CCLERICAL_OP_MINUS = '-',
-	CCLERICAL_OP_MUL = '*',
-	CCLERICAL_OP_DIV = '/',
-	CCLERICAL_OP_EXP = '^',
-	CCLERICAL_OP_LT = '<',
-	CCLERICAL_OP_GT = '>',
-	CCLERICAL_OP_UMINUS = 128,
+	CCLERICAL_OP_NEG,
+	CCLERICAL_OP_ADD,
+	CCLERICAL_OP_SUB,
+	CCLERICAL_OP_MUL,
+	CCLERICAL_OP_DIV,
+	CCLERICAL_OP_EXP,
+	CCLERICAL_OP_LT,
+	CCLERICAL_OP_GT,
 	CCLERICAL_OP_NE,
 };
 

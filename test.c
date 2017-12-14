@@ -1,4 +1,6 @@
 
+#define _POSIX_C_SOURCE	2 /* getopt(3) */
+
 #include <stdio.h>
 
 #include "cclerical.h"
@@ -24,19 +26,18 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		fprintf(stderr, "%*s decl-asgn done\n", lvl, "");
 		break;
 	case CCLERICAL_EXPR_OP: {
-		const char *op = NULL;
-		switch (e->op.op) {
-		case CCLERICAL_OP_PLUS: op = "plus"; break;
-		case CCLERICAL_OP_MINUS: op = "minus"; break;
-		case CCLERICAL_OP_MUL: op = "mul"; break;
-		case CCLERICAL_OP_DIV: op = "div"; break;
-		case CCLERICAL_OP_EXP: op = "exp"; break;
-		case CCLERICAL_OP_LT: op = "lt"; break;
-		case CCLERICAL_OP_GT: op = "gt"; break;
-		case CCLERICAL_OP_NE: op = "ne"; break;
-		case CCLERICAL_OP_UMINUS: op = "unary minus"; break;
-		}
-		fprintf(stderr, "%*sop: %s\n", lvl, "", op);
+		static const char *const ops[] = {
+			[CCLERICAL_OP_NEG] = "neg",
+			[CCLERICAL_OP_ADD] = "add",
+			[CCLERICAL_OP_SUB] = "sub",
+			[CCLERICAL_OP_MUL] = "mul",
+			[CCLERICAL_OP_DIV] = "div",
+			[CCLERICAL_OP_EXP] = "exp",
+			[CCLERICAL_OP_LT]  = "lt",
+			[CCLERICAL_OP_GT]  = "gt",
+			[CCLERICAL_OP_NE]  = "ne",
+		};
+		fprintf(stderr, "%*sop: %s\n", lvl, "", ops[e->op.op]);
 		pexpr(e->op.arg1, lvl+1);
 		pexpr(e->op.arg2, lvl+1);
 		break;
@@ -148,6 +149,7 @@ static void export_irram(const struct cclerical_prog *p,
 		case CCLERICAL_STMT_SKIP: break;
 		}
 	}
+	cclerical_vector_fini(&blocks);
 	printf("%s\n", IRRAM_FOOTER);
 }
 

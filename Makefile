@@ -1,8 +1,7 @@
 
-LEX = flex
-YACC = bison
+LEXFLAGS = --batch
 YFLAGS = -v
-CFLAGS = -Wall -O0 -g
+CFLAGS = -Wall -Wextra -O0 -g
 
 .PHONY: clean
 
@@ -20,7 +19,7 @@ test: test.o cclerical.tab.o cclerical.lex.o cclerical.o
 test.o cclerical.lex.o: cclerical.tab.h cclerical.lex.h
 
 cclerical.tab.c cclerical.tab.h: cclerical.y
-	$(YACC) $(YFLAGS) $<
+	$(YACC) $(YFLAGS) -b cclerical $<
 
 cclerical.lex.c cclerical.lex.h: cclerical.l
 	$(LEX) $(LEXFLAGS) -o cclerical.lex.c --header-file=cclerical.lex.h $<

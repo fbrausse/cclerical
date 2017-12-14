@@ -3,6 +3,11 @@
 #include "cclerical.h"
 #include "cclerical.tab.h"
 
+static char * ccl_strdup(const char *s)
+{
+	return memdup(s, strlen(s)+1);
+}
+
 static void update_loc(YYLTYPE *loc, const char *s)
 {
 	loc->first_line = loc->last_line;
@@ -31,7 +36,7 @@ static void cnst_init_bool(struct cclerical_constant *c, int v)
 static void cnst_init_int(struct cclerical_constant *c, const char *s, int base)
 {
 	c->lower_type = CCLERICAL_TYPE_INT;
-	c->numeric.str = strdup(s);
+	c->numeric.str = ccl_strdup(s);
 	c->numeric.base = base;
 }
 
@@ -91,7 +96,7 @@ Real		{ return TK_REAL; }
 
 {WHITE}+	;
 
-{IDENT}		{ yylval->ident = strdup(yytext); return IDENT; }
+{IDENT}		{ yylval->ident = ccl_strdup(yytext); return IDENT; }
 
 {INT_DEC}	{
 			cnst_init_int(&yylval->cnst, yytext, 10);
