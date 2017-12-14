@@ -22,6 +22,19 @@ static void update_loc(YYLTYPE *loc, const char *s)
 		}
 }
 
+static void cnst_init_bool(struct cclerical_constant *c, int v)
+{
+	c->lower_type = CCLERICAL_TYPE_BOOL;
+	c->boolean = v;
+}
+
+static void cnst_init_int(struct cclerical_constant *c, const char *s, int base)
+{
+	c->lower_type = CCLERICAL_TYPE_INT;
+	c->numeric.str = strdup(s);
+	c->numeric.base = base;
+}
+
 #define YY_USER_ACTION update_loc(yylloc, yytext);
 %}
 
@@ -55,6 +68,16 @@ end		{ return TK_END; }
 do		{ return TK_DO; }
 function	{ return TK_FUN; }
 
+false		{
+			cnst_init_bool(&yylval->cnst, 0);
+			return CONSTANT;
+		}
+
+true		{
+			cnst_init_bool(&yylval->cnst, 1);
+			return CONSTANT;
+		}
+
 :=		{ return TK_ASGN; }
 =>		{ return TK_RARROW; }
 \|\|		{ return TK_BARS; }
@@ -71,29 +94,21 @@ Real		{ return TK_REAL; }
 {IDENT}		{ yylval->ident = strdup(yytext); return IDENT; }
 
 {INT_DEC}	{
-			yylval->cnst.lower_type = CCLERICAL_TYPE_INT;
-			yylval->cnst.str        = strdup(yytext);
-			yylval->cnst.base       = 10;
+			cnst_init_int(&yylval->cnst, yytext, 10);
 			return CONSTANT;
 		}
 
 {INT_HEX}	{
-			yylval->cnst.lower_type = CCLERICAL_TYPE_INT;
-			yylval->cnst.str        = strdup(yytext);
-			yylval->cnst.base       = 16;
+			cnst_init_int(&yylval->cnst, yytext, 16);
 			return CONSTANT;
 		}
 
 {INT_BIN}	{
-			yylval->cnst.lower_type = CCLERICAL_TYPE_INT;
-			yylval->cnst.str        = strdup(yytext);
-			yylval->cnst.base       = 2;
+			cnst_init_int(&yylval->cnst, yytext, 2);
 			return CONSTANT;
 		}
 
 {INT_OCT}	{
-			yylval->cnst.lower_type = CCLERICAL_TYPE_INT;
-			yylval->cnst.str        = strdup(yytext);
-			yylval->cnst.base       = 8;
+			cnst_init_int(&yylval->cnst, yytext, 8);
 			return CONSTANT;
 		}

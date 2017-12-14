@@ -61,7 +61,17 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 {
 	switch (e->type) {
 	case CCLERICAL_EXPR_VAR: break;
-	case CCLERICAL_EXPR_CNST: free(e->cnst.str); break;
+	case CCLERICAL_EXPR_CNST:
+		switch (e->cnst.lower_type) {
+		case CCLERICAL_TYPE_UNIT:
+		case CCLERICAL_TYPE_BOOL:
+			break;
+		case CCLERICAL_TYPE_INT:
+		case CCLERICAL_TYPE_REAL:
+			free(e->cnst.numeric.str);
+			break;
+		}
+		break;
 	case CCLERICAL_EXPR_CASE: cclerical_cases_fini(&e->cases); break;
 	case CCLERICAL_EXPR_DECL_ASGN:
 		cclerical_expr_destroy(e->decl_asgn.expr);

@@ -37,8 +37,13 @@ typedef unsigned cclerical_type_set_t;
 
 struct cclerical_constant {
 	enum cclerical_type lower_type;
-	char *str;
-	unsigned base;
+	union {
+		int boolean;
+		struct {
+			char *str;
+			unsigned base;
+		} numeric;
+	};
 };
 
 struct cclerical_var {
