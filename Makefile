@@ -1,6 +1,7 @@
 
 LEX = flex
 YACC = bison
+YFLAGS = -v
 CFLAGS = -Wall -O0 -g
 
 .PHONY: clean
@@ -11,7 +12,7 @@ test: test.o cclerical.tab.o cclerical.lex.o cclerical.o
 %.c: %.y
 %.c: %.l
 
-%.o: %.c
+%.o: %.c $(wildcard *.h)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
 %.lex.o: override CFLAGS += -Wno-unused-function
