@@ -465,7 +465,7 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
                                     cclerical_type_set_t forced,
                                     YYLTYPE *locp)
 {
-	enum cclerical_type expr_t;
+	enum cclerical_type expr_t = CCLERICAL_TYPE_UNIT; /* silence uninit-use warning */
 	switch (e->type) {
 	case CCLERICAL_EXPR_OP: {
 		cclerical_type_set_t arg_t = 1U << e->op.arg1->result_type;
