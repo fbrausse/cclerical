@@ -281,8 +281,8 @@ struct cclerical_scope cclerical_parser_close_scope(struct cclerical_parser *p)
 void cclerical_parser_fini(struct cclerical_parser *p)
 {
 	while (p->scope.parent) {
-		cclerical_scope_fini(&p->scope.scope);
-		p->scope.scope = cclerical_parser_close_scope(p);
+		struct cclerical_scope sc = cclerical_parser_close_scope(p);
+		cclerical_scope_fini(&sc);
 	}
 	cclerical_scope_fini(&p->scope.scope);
 	for (size_t i=0; i<p->vars.valid; i++) {

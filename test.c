@@ -83,7 +83,7 @@ static void pstmt(const struct cclerical_stmt *s, int lvl)
 	case CCLERICAL_STMT_SKIP:
 		break;
 	case CCLERICAL_STMT_ASGN:
-		fprintf(stderr, "%*sasgn var #%zu to\n", lvl, "", s->asgn.var);
+		fprintf(stderr, "%*sasgn var #%zu from\n", lvl, "", s->asgn.var);
 		pexpr(s->asgn.expr, lvl+1);
 		break;
 	case CCLERICAL_STMT_WHILE:
