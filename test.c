@@ -9,17 +9,11 @@ static void pprog(const struct cclerical_prog *p, int lvl);
 
 static void pexpr(const struct cclerical_expr *e, int lvl)
 {
-	static const char *const types[] = {
-		[CCLERICAL_TYPE_UNIT] = "Unit",
-		[CCLERICAL_TYPE_BOOL] = "Bool",
-		[CCLERICAL_TYPE_INT ] = "Int",
-		[CCLERICAL_TYPE_REAL] = "Real"
-	};
 	static const char *const st[] = {
 		"decl-asgn", "cnst", "var", "case", "lim", "op",
 	};
 	fprintf(stderr, "%*sexpr: %s of type %s\n", lvl, "", st[e->type],
-	        types[e->result_type]);
+	        CCLERICAL_TYPE_STR[e->result_type]);
 	switch (e->type) {
 	case CCLERICAL_EXPR_DECL_ASGN:
 		fprintf(stderr, "%*sdecl-asgn setting var #%zu to\n", lvl, "",
@@ -56,7 +50,8 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 			fprintf(stderr, "(%s)_%u",
 			        e->cnst.numeric.str, e->cnst.numeric.base);
 		break;
-		fprintf(stderr, " : %s\n", types[e->cnst.lower_type]);
+		fprintf(stderr, " : %s\n",
+		        CCLERICAL_TYPE_STR[e->cnst.lower_type]);
 	}
 	case CCLERICAL_EXPR_VAR:
 		fprintf(stderr, "%*svar #%zu\n", lvl, "", e->var);

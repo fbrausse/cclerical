@@ -3,6 +3,13 @@
 
 #define MAX(a,b)	((a) < (b) ? (b) : (a))
 
+const char *const CCLERICAL_TYPE_STR[] = {
+	[CCLERICAL_TYPE_UNIT] = "Unit",
+	[CCLERICAL_TYPE_BOOL] = "Bool",
+	[CCLERICAL_TYPE_INT ] = "Int",
+	[CCLERICAL_TYPE_REAL] = "Real"
+};
+
 static inline void * memdup(const void *src, size_t n)
 {
 	return memcpy(malloc(n), src, n);

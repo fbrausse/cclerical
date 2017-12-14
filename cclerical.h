@@ -33,6 +33,8 @@ enum cclerical_type {
 	CCLERICAL_TYPE_REAL,
 };
 
+extern const char *const CCLERICAL_TYPE_STR[];
+
 typedef unsigned cclerical_type_set_t;
 
 struct cclerical_constant {

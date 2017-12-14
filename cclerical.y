@@ -265,14 +265,12 @@ expr
 		struct cclerical_decl *dparam = p->decls.data[param];
 		if (dparam->var.type != e->result_type)
 			continue;
-		static const char *const types[] = {
-			"Unit", "Bool", "Int", "Real",
-		};
 		cclerical_error(&yylloc, p, yyscanner,
 		                "in function-call to %s: type mismatch of "
 		                "argument %zu: exprected %s, expression is of "
-		                "type %s", d->id, types[dparam->var.type],
-		                types[e->result_type]);
+		                "type %s", d->id,
+		                CCLERICAL_TYPE_STR[dparam->var.type],
+		                CCLERICAL_TYPE_STR[e->result_type]);
 		YYERROR;
 	}
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_FUN_CALL);
