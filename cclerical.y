@@ -227,11 +227,11 @@ expr
 	$$->cases = $2;
 	EXPR_NEW($$);
     }
-  | lim_init prog TK_END
+  | lim_init TK_RARROW prog TK_END
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_LIM);
 	$$->lim.seq_idx = $1;
-	$$->lim.seq = $2;
+	$$->lim.seq = $3;
 	$$->lim.local = cclerical_parser_close_scope(p);
 	EXPR_NEW($$);
     }
@@ -278,14 +278,14 @@ var_init
     }
 
 lim_init
-  : TK_LIM IDENT TK_RARROW
+  : TK_LIM IDENT
     {
 	cclerical_parser_open_scope(p);
 	int r = cclerical_parser_new_var(p, $2, CCLERICAL_TYPE_INT, &$$);
 	if (r) {
 		cclerical_error(&yylloc, p, yyscanner,
 		                "error declaring variable '%s' in lim: %s\n",
-		                strerror(r));
+		                $2, strerror(r));
 		free($2);
 		YYERROR;
 	}
@@ -461,6 +461,8 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 		const struct cclerical_var *v = p->vars.data[e->var];
 		expr_t = v->type;
 		break;
+	default:
+		abort();
 	}
 	}
 	cclerical_type_set_t convertible_to = super_types(expr_t);
