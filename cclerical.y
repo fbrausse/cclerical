@@ -36,6 +36,10 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
                                        struct cclerical_expr *e,
                                        YYLTYPE *locp);
 
+static struct cclerical_expr * fun_call(struct cclerical_parser *p,
+                                        YYLTYPE *locp, char *id,
+                                        struct cclerical_vector params);
+
 #define EXPR_NEW(e)	do { if (!expr_new(p, e, &yylloc)) YYERROR; } while (0)
 #define EXPR(e,forced)	\
 	do { if (!expr(p, e, forced, &yylloc)) YYERROR; } while (0)
@@ -243,39 +247,8 @@ expr
     }
   | IDENT '(' fun_call_param_spec ')'
     {
-	cclerical_id_t v;
-	if (!lookup_var(p, $1, &v, &yylloc, 0))
+	if (!($$ = fun_call(p, &yyloc, $1, $3)))
 		YYERROR;
-	struct cclerical_decl *d = p->decls.data[v];
-	if (d->type != CCLERICAL_DECL_FUN) {
-		cclerical_error(&yylloc, p, yyscanner,
-		                "'%s' does not identify a function\n", d->id);
-		YYERROR;
-	}
-	if (d->fun.arguments.valid != $3.valid) {
-		cclerical_error(&yylloc, p, yyscanner,
-		                "in function-call to %s: number of arguments "
-		                "mismatch: passed: %zu, declared with: %zu\n",
-		                d->id, $3.valid, d->fun.arguments.valid);
-		YYERROR;
-	}
-	for (size_t i=0; i<$3.valid; i++) {
-		struct cclerical_expr *e = $3.data[i];
-		cclerical_id_t param = (uintptr_t)d->fun.arguments.data[i];
-		struct cclerical_decl *dparam = p->decls.data[param];
-		if (dparam->var.type != e->result_type)
-			continue;
-		cclerical_error(&yylloc, p, yyscanner,
-		                "in function-call to %s: type mismatch of "
-		                "argument %zu: exprected %s, expression is of "
-		                "type %s", d->id,
-		                CCLERICAL_TYPE_STR[dparam->var.type],
-		                CCLERICAL_TYPE_STR[e->result_type]);
-		YYERROR;
-	}
-	$$ = cclerical_expr_create(CCLERICAL_EXPR_FUN_CALL);
-	$$->fun_call.fun = v;
-	$$->fun_call.params = $3;
 	EXPR_NEW($$);
     }
   | IDENT
@@ -556,4 +529,48 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 		return e;
 	free(e);
 	return NULL;
+}
+
+static struct cclerical_expr * fun_call(struct cclerical_parser *p,
+                                        YYLTYPE *locp, char *id,
+                                        struct cclerical_vector params)
+{
+	cclerical_id_t v;
+	if (!lookup_var(p, id, &v, locp, 0)) {
+		cclerical_error(locp, p, NULL,
+		                "call to undeclared function identifier '%s'",
+		                id);
+		return NULL;
+	}
+	struct cclerical_decl *d = p->decls.data[v];
+	if (d->type != CCLERICAL_DECL_FUN) {
+		cclerical_error(locp, p, NULL,
+		                "'%s' does not identify a function", d->id);
+		return NULL;
+	}
+	if (d->fun.arguments.valid != params.valid) {
+		cclerical_error(locp, p, NULL,
+		                "in function-call to %s: number of arguments "
+		                "mismatch: passed: %zu, declared with: %zu",
+		                d->id, params.valid, d->fun.arguments.valid);
+		return NULL;
+	}
+	for (size_t i=0; i<params.valid; i++) {
+		struct cclerical_expr *e = params.data[i];
+		cclerical_id_t param = (uintptr_t)d->fun.arguments.data[i];
+		struct cclerical_decl *dparam = p->decls.data[param];
+		if ((1U << dparam->var.type) & super_types(e->result_type))
+			continue;
+		cclerical_error(locp, p, NULL,
+		                "in function-call to %s: type mismatch of "
+		                "argument %zu: exprected %s, expression is of "
+		                "type %s", d->id,
+		                CCLERICAL_TYPE_STR[dparam->var.type],
+		                CCLERICAL_TYPE_STR[e->result_type]);
+		return NULL;
+	}
+	struct cclerical_expr *e = cclerical_expr_create(CCLERICAL_EXPR_FUN_CALL);
+	e->fun_call.fun = v;
+	e->fun_call.params = params;
+	return e;
 }
