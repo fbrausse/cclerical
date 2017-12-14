@@ -80,7 +80,8 @@ void cclerical_constant_fini(struct cclerical_constant *c)
 void cclerical_expr_destroy(struct cclerical_expr *e)
 {
 	switch (e->type) {
-	case CCLERICAL_EXPR_VAR: break;
+	case CCLERICAL_EXPR_VAR:
+		break;
 	case CCLERICAL_EXPR_FUN_CALL:
 		for (size_t i=0; i<e->fun_call.params.valid; i++) {
 			struct cclerical_expr *f = e->fun_call.params.data[i];
@@ -90,7 +91,9 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 	case CCLERICAL_EXPR_CNST:
 		cclerical_constant_fini(&e->cnst);
 		break;
-	case CCLERICAL_EXPR_CASE: cclerical_cases_fini(&e->cases); break;
+	case CCLERICAL_EXPR_CASE:
+		cclerical_cases_fini(&e->cases);
+		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
 		cclerical_expr_destroy(e->decl_asgn.expr);
 		cclerical_prog_destroy(e->decl_asgn.prog);

@@ -11,7 +11,7 @@
 #define YYMAXDEPTH LONG_MAX
 #define YYLTYPE_IS_TRIVIAL 1
 
-static void cclerical_error0(YYLTYPE *locp, struct cclerical_parser *p,
+static void cclerical_error0(YYLTYPE *locp, const struct cclerical_parser *p,
                              void *scanner, const char *file, int lineno,
                              const char *fmt, ...);
 
@@ -364,7 +364,8 @@ type
 
 %%
 
-static inline void cclerical_error0(YYLTYPE *locp, struct cclerical_parser *p,
+static inline void cclerical_error0(YYLTYPE *locp,
+                                    const struct cclerical_parser *p,
                                     void *scanner, const char *file, int lineno,
                                     const char *fmt, ...)
 {
@@ -458,10 +459,9 @@ static int is_arith_op(enum cclerical_op op)
 	return -1;
 }
 
-static struct cclerical_expr * expr(struct cclerical_parser *p,
-                                    struct cclerical_expr *e,
-                                    cclerical_type_set_t forced,
-                                    YYLTYPE *locp)
+static int expr_super_types(const struct cclerical_parser *p,
+                            const struct cclerical_expr *e, YYLTYPE *locp,
+                            cclerical_type_set_t *res)
 {
 	enum cclerical_type expr_t = CCLERICAL_TYPE_UNIT; /* silence uninit-use warning */
 	switch (e->type) {
@@ -471,7 +471,7 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 			arg_t |= 1U << e->op.arg2->result_type;
 		if (arg_t & (1U << CCLERICAL_TYPE_UNIT)) {
 			cclerical_error(locp, p, NULL, "operand of Unit type");
-			return NULL;
+			return 0;
 		}
 		if (!is_arith_op(e->op.op)) {
 			if ((e->op.op == CCLERICAL_OP_LT ||
@@ -479,13 +479,13 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 			    (arg_t & (1U << CCLERICAL_TYPE_BOOL))) {
 				cclerical_error(locp, p, NULL,
 						"comparison with Boolean type");
-				return NULL;
+				return 0;
 			}
 			expr_t = CCLERICAL_TYPE_BOOL;
 		} else if (!unique_t(arg_t, &expr_t)) {
 			cclerical_error(locp, p, NULL,
 			                "mixed-type op expression");
-			return NULL;
+			return 0;
 		}
 		break;
 	}
@@ -499,7 +499,7 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 		if (!unique_t(arg_t, &expr_t)) {
 			cclerical_error(locp, p, NULL,
 			                "mixed-type case expression");
-			return NULL;
+			return 0;
 		}
 		break;
 	}
@@ -520,7 +520,18 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 		break;
 	}
 	}
-	cclerical_type_set_t convertible_to = super_types(expr_t);
+	*res = super_types(expr_t);
+	return 1;
+}
+
+static struct cclerical_expr * expr(struct cclerical_parser *p,
+                                    struct cclerical_expr *e,
+                                    cclerical_type_set_t forced,
+                                    YYLTYPE *locp)
+{
+	cclerical_type_set_t convertible_to;
+	if (!expr_super_types(p, e, locp, &convertible_to))
+		return NULL;
 	cclerical_type_set_t common = convertible_to & forced;
 	if (!common) {
 		cclerical_error(locp, p, NULL,

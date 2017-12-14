@@ -49,9 +49,9 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		else
 			fprintf(stderr, "(%s)_%u",
 			        e->cnst.numeric.str, e->cnst.numeric.base);
-		break;
 		fprintf(stderr, " : %s\n",
 		        CCLERICAL_TYPE_STR[e->cnst.lower_type]);
+		break;
 	}
 	case CCLERICAL_EXPR_VAR:
 		fprintf(stderr, "%*svar #%zu\n", lvl, "", e->var);
