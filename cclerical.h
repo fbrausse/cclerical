@@ -174,6 +174,8 @@ void cclerical_cases_fini(const struct cclerical_vector *c);
 struct cclerical_parser_scope {
 	struct cclerical_parser_scope *parent;
 	struct cclerical_scope scope;
+	unsigned this_read_only : 1; /* never reset */
+	unsigned all_read_only : 1;  /* reset to 0 on close_scope() */
 };
 
 struct cclerical_decl {
@@ -214,7 +216,8 @@ int cclerical_parser_new_fun(struct cclerical_parser *p,
                              struct cclerical_vector arguments,
                              struct cclerical_prog *body, cclerical_id_t *v);
 
-void cclerical_parser_open_scope(struct cclerical_parser *p);
+void cclerical_parser_open_scope(struct cclerical_parser *p, int ro,
+                                 int parents_ro);
 
 struct cclerical_scope cclerical_parser_close_scope(struct cclerical_parser *p);
 

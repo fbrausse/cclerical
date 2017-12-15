@@ -138,7 +138,7 @@ toplevel
   | TK_DO prog { p->prog = $2; }
 
 fun_decl
-  : TK_FUN IDENT { cclerical_parser_open_scope(p); }
+  : TK_FUN IDENT { cclerical_parser_open_scope(p, 0, 1); }
     '(' fun_decl_params_spec ')' ':' prog
     {
 	free(cclerical_parser_close_scope(p).var_idcs.data);
@@ -265,7 +265,7 @@ expr
     }
   | TK_LIM IDENT
     {
-	cclerical_parser_open_scope(p);
+	cclerical_parser_open_scope(p, 0, 1);
 	int r = cclerical_parser_new_var(p, $2, CCLERICAL_TYPE_INT, &$<varref>$);
 	if (r) {
 		ERROR(&yylloc, "error declaring variable '%s' in lim: %s\n",
@@ -282,7 +282,7 @@ expr
 	$$->lim.local = cclerical_parser_close_scope(p);
 	EXPR_NEW($$);
     }
-  | TK_VAR { cclerical_parser_open_scope(p); }
+  | TK_VAR { cclerical_parser_open_scope(p, 0, 0); }
     var_init_list TK_IN prog TK_END
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
