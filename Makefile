@@ -14,7 +14,7 @@ test: test.o cclerical.tab.o cclerical.lex.o cclerical.o
 %.o: %.c $(wildcard *.h)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
-%.lex.o: override CFLAGS += -Wno-unused-function
+%.lex.o: override CFLAGS += -Wno-unused-function -Wno-sign-compare
 
 test.o cclerical.lex.o: cclerical.tab.h cclerical.lex.h
 

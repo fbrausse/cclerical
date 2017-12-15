@@ -172,10 +172,9 @@ void cclerical_parser_init(struct cclerical_parser *p)
 	memset(p, 0, sizeof(*p));
 }
 
-static int cclerical_parser_var_lookup0(const struct cclerical_parser *p,
-                                        const struct cclerical_parser_scope *s,
-                                        const char *id, cclerical_id_t *ridx,
-                                        int rw)
+static int lookup(const struct cclerical_parser *p,
+                  const struct cclerical_parser_scope *s, const char *id,
+                  cclerical_id_t *ridx, int rw)
 {
 	if (!s)
 		return 0;
@@ -191,13 +190,13 @@ static int cclerical_parser_var_lookup0(const struct cclerical_parser *p,
 		}
 	}
 	return rw && s->parent->all_read_only
-	       ? 0 : cclerical_parser_var_lookup0(p, s->parent, id, ridx, rw);
+	       ? 0 : lookup(p, s->parent, id, ridx, rw);
 }
 
 int cclerical_parser_var_lookup(struct cclerical_parser *p, const char *id,
-                               cclerical_id_t *v, int rw)
+                                cclerical_id_t *v, int rw)
 {
-	return cclerical_parser_var_lookup0(p, &p->scope, id, v, rw);
+	return lookup(p, &p->scope, id, v, rw);
 }
 
 static int cclerical_parser_new_decl(struct cclerical_parser *p,
