@@ -17,15 +17,13 @@ static void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
 #define ERROR(locp,...) cclerical_error0(locp, __FILE__, __LINE__, __VA_ARGS__)
 #define cclerical_error(locp,p,scanner,...) ERROR(locp, __VA_ARGS__)
 
-//int cclerical_lex(YYSTYPE *lvalp, YYLTYPE *llocp);
-
 static int lookup_var(struct cclerical_parser *p, char *id,
                       cclerical_id_t *v, YYLTYPE *locp, int rw);
 
-static const unsigned TYPES_ALL = 1U << CCLERICAL_TYPE_UNIT
-                                | 1U << CCLERICAL_TYPE_BOOL
-                                | 1U << CCLERICAL_TYPE_INT
-                                | 1U << CCLERICAL_TYPE_REAL;
+#define TYPES_ALL (1U << CCLERICAL_TYPE_UNIT | \
+                   1U << CCLERICAL_TYPE_BOOL | \
+                   1U << CCLERICAL_TYPE_INT  | \
+                   1U << CCLERICAL_TYPE_REAL)
 
 static struct cclerical_expr * expr(struct cclerical_parser *p,
                                    struct cclerical_expr *e,
