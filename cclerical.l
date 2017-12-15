@@ -1,4 +1,4 @@
-
+/* SPDX short identifier: BSD-3-Clause */
 %{
 #include "cclerical.h"
 #include "cclerical.tab.h"

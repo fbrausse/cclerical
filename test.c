@@ -1,4 +1,4 @@
-
+/* SPDX short identifier: BSD-3-Clause */
 #define _POSIX_C_SOURCE	2 /* getopt(3) */
 
 #include <stdio.h>

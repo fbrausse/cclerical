@@ -1,4 +1,4 @@
-
+/* SPDX short identifier: BSD-3-Clause */
 #ifndef CCLERICAL_H
 #define CCLERICAL_H
 

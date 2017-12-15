@@ -1,4 +1,4 @@
-
+/* SPDX short identifier: BSD-3-Clause */
 #include "cclerical.h"
 
 #define MAX(a,b)	((a) < (b) ? (b) : (a))

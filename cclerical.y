@@ -1,4 +1,4 @@
-
+/* SPDX short identifier: BSD-3-Clause */
 %{
 #include <limits.h>	/* LONG_MAX */
 #include <stdarg.h>	/* va_*() */
