@@ -145,12 +145,12 @@ static const char *const CCLERICAL_iRRAM_TYPES[] = {
 };
 
 static const char *const CCLERICAL_CPP_OPS[] = {
-	[CCLERICAL_OP_NEG] = "!",
+	[CCLERICAL_OP_NEG] = NULL,
 	[CCLERICAL_OP_ADD] = "+",
 	[CCLERICAL_OP_SUB] = "-",
 	[CCLERICAL_OP_MUL] = "*",
 	[CCLERICAL_OP_DIV] = "/",
-	[CCLERICAL_OP_EXP] = "^",
+	[CCLERICAL_OP_EXP] = NULL,
 	[CCLERICAL_OP_LT]  = "<",
 	[CCLERICAL_OP_GT]  = ">",
 	[CCLERICAL_OP_NE]  = "!=",
@@ -290,8 +290,12 @@ static void visit_prev_scope(const vec_t *decls, cclerical_id_t v,
 	struct visit_prev_scope_args *a = cb_data;
 	(void)decls;
 	(void)access;
-	if (v < a->up_excl)
-		cclerical_vector_add(a->vars, (void *)(uintptr_t)v);
+	if (v >= a->up_excl)
+		return;
+	for (size_t i=0; i<a->vars->valid; i++)
+		if ((uintptr_t)a->vars->data[i] == v)
+			return;
+	cclerical_vector_add(a->vars, (void *)(uintptr_t)v);
 }
 
 static void export_irram_expr(const vec_t *decls,
@@ -348,12 +352,19 @@ static void export_irram_expr(const vec_t *decls,
 			export_irram_expr(decls, e->op.arg1, lvl);
 			cclprintf(0, ")");
 			break;
+		} else if (e->op.op == CCLERICAL_OP_EXP) {
+			cclprintf(0, "exp(");
+			export_irram_expr(decls, e->op.arg1, lvl);
+			cclprintf(0, "), (");
+			export_irram_expr(decls, e->op.arg2, lvl);
+			cclprintf(0, ")");
+		} else {
+			cclprintf(0, "(");
+			export_irram_expr(decls, e->op.arg1, lvl);
+			cclprintf(0, ") %s (", CCLERICAL_CPP_OPS[e->op.op]);
+			export_irram_expr(decls, e->op.arg2, lvl);
+			cclprintf(0, ")");
 		}
-		cclprintf(0, "(");
-		export_irram_expr(decls, e->op.arg1, lvl);
-		cclprintf(0, ") %s (", CCLERICAL_CPP_OPS[e->op.op]);
-		export_irram_expr(decls, e->op.arg2, lvl);
-		cclprintf(0, ")");
 		break;
 	case CCLERICAL_EXPR_CASE:
 		if (e->cases.valid > 2*6)

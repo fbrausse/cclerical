@@ -102,7 +102,8 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 		break;
 	case CCLERICAL_EXPR_OP:
 		cclerical_expr_destroy(e->op.arg1);
-		cclerical_expr_destroy(e->op.arg2);
+		if (e->op.op != CCLERICAL_OP_NEG)
+			cclerical_expr_destroy(e->op.arg2);
 		break;
 	}
 	free(e);

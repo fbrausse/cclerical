@@ -491,7 +491,7 @@ static int expr_super_types(const struct cclerical_parser *p,
 	switch (e->type) {
 	case CCLERICAL_EXPR_OP: {
 		cclerical_type_set_t arg_t = 1U << e->op.arg1->result_type;
-		if (!is_binary_op(e->op.op))
+		if (is_binary_op(e->op.op))
 			arg_t |= 1U << e->op.arg2->result_type;
 		if (arg_t & (1U << CCLERICAL_TYPE_UNIT)) {
 			ERROR(locp, "operand of Unit type");
