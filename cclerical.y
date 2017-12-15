@@ -109,13 +109,13 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 
 %type <prog> prog else_branch
 %type <stmt> stmt
-%type <expr> expr var_init
+%type <expr> expr
 %type <type> type utype
 %type <cases> cases
-%type <varref> lim_init fun_decl_param fun_decl
-%type <params> fun_decl_params fun_decl_params_spec extfun_decl_params extfun_decl_params_spec
+%type <varref> fun_decl_param fun_decl
+%type <params> extfun_decl_params extfun_decl_params_spec
+%type <params> fun_decl_params fun_decl_params_spec
 %type <params> fun_call_params fun_call_param_spec
-%type <ident> fun_decl_init
 
 %start tu
 
@@ -130,10 +130,11 @@ toplevel
   | TK_DO prog { p->prog = $2; }
 
 fun_decl
-  : fun_decl_init '(' fun_decl_params_spec ')' ':' prog
+  : TK_FUN IDENT { cclerical_parser_open_scope(p); }
+    '(' fun_decl_params_spec ')' ':' prog
     {
 	free(cclerical_parser_close_scope(p).var_idcs.data);
-	cclerical_parser_new_fun(p, $1, cclerical_prog_type($6), $3, $6, &$$);
+	cclerical_parser_new_fun(p, $2, cclerical_prog_type($8), $5, $8, &$$);
     }
   | TK_EXTERNAL IDENT '(' extfun_decl_params_spec ')' TK_RSARROW utype
     {
@@ -156,9 +157,6 @@ extfun_decl_params
 	cclerical_vector_add(&$$, (void *)(uintptr_t)$3);
     }
 
-fun_decl_init
-  : TK_FUN IDENT { cclerical_parser_open_scope(p); $$ = $2; }
-
 fun_decl_params_spec
   : %empty      { cclerical_vector_init(&$$); }
   | fun_decl_params
@@ -171,6 +169,7 @@ fun_decl_params
     }
   | fun_decl_params ',' fun_decl_param
     {
+	$$ = $1;
 	cclerical_vector_add(&$$, (void *)(uintptr_t)$3);
     }
 
@@ -256,18 +255,43 @@ expr
 	$$->cases = $2;
 	EXPR_NEW($$);
     }
-  | lim_init TK_RDARROW prog TK_END
+  | TK_LIM IDENT
+    {
+	cclerical_parser_open_scope(p);
+	int r = cclerical_parser_new_var(p, $2, CCLERICAL_TYPE_INT, &$<varref>$);
+	if (r) {
+		ERROR(&yylloc, "error declaring variable '%s' in lim: %s\n",
+		      $2, strerror(r));
+		free($2);
+		YYERROR;
+	}
+    }
+    TK_RDARROW prog TK_END
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_LIM);
-	$$->lim.seq_idx = $1;
-	$$->lim.seq = $3;
+	$$->lim.seq_idx = $<varref>3;
+	$$->lim.seq = $5;
 	$$->lim.local = cclerical_parser_close_scope(p);
 	EXPR_NEW($$);
     }
-  | var_init TK_IN prog TK_END
+  | TK_VAR IDENT TK_ASGN expr ':' type
     {
-	$$ = $1;
-	$$->decl_asgn.prog = $3;
+	EXPR($4, 1U << $6);
+	cclerical_parser_open_scope(p);
+	int r = cclerical_parser_new_var(p, $2, $6, &$<varref>$);
+	if (r) {
+		ERROR(&yylloc, "error defining variable '%s': %s\n",
+		      $2, strerror(r));
+		free($2);
+		YYERROR;
+	}
+    }
+    TK_IN prog TK_END
+    {
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
+	$$->decl_asgn.var  = $<varref>7;
+	$$->decl_asgn.expr = $4;
+	$$->decl_asgn.prog = $9;
 	EXPR_NEW($$);
 	free(cclerical_parser_close_scope(p).var_idcs.data);
     }
@@ -307,37 +331,6 @@ fun_call_params
     {
 	$$ = $1;
 	cclerical_vector_add(&$$, $3);
-    }
-
-var_init
-  : TK_VAR IDENT TK_ASGN expr ':' type
-    {
-	EXPR($4, 1U << $6);
-	cclerical_parser_open_scope(p);
-	cclerical_id_t v;
-	int r = cclerical_parser_new_var(p, $2, $6, &v);
-	if (r) {
-		ERROR(&yylloc, "error defining variable '%s': %s\n",
-		      $2, strerror(r));
-		free($2);
-		YYERROR;
-	}
-	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
-	$$->decl_asgn.var  = v;
-	$$->decl_asgn.expr = $4;
-    }
-
-lim_init
-  : TK_LIM IDENT
-    {
-	cclerical_parser_open_scope(p);
-	int r = cclerical_parser_new_var(p, $2, CCLERICAL_TYPE_INT, &$$);
-	if (r) {
-		ERROR(&yylloc, "error declaring variable '%s' in lim: %s\n",
-		      $2, strerror(r));
-		free($2);
-		YYERROR;
-	}
     }
 
 cases
