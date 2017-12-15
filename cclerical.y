@@ -477,7 +477,7 @@ static int expr_super_types(const struct cclerical_parser *p,
 		expr_t = e->cnst.lower_type;
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
-		expr_t = e->decl_asgn.expr->result_type;
+		expr_t = cclerical_prog_type(e->decl_asgn.prog);
 		break;
 	case CCLERICAL_EXPR_VAR: {
 		const struct cclerical_decl *v = p->decls.data[e->var];

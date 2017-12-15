@@ -12,7 +12,13 @@ static void pprog(const struct cclerical_prog *p, int lvl);
 static void pexpr(const struct cclerical_expr *e, int lvl)
 {
 	static const char *const st[] = {
-		"decl-asgn", "cnst", "var", "case", "lim", "op",
+		[CCLERICAL_EXPR_DECL_ASGN] = "decl-asgn",
+		[CCLERICAL_EXPR_CNST     ] = "cnst",
+		[CCLERICAL_EXPR_VAR      ] = "var",
+		[CCLERICAL_EXPR_FUN_CALL ] = "fun-call",
+		[CCLERICAL_EXPR_CASE     ] = "case",
+		[CCLERICAL_EXPR_LIM      ] = "lim",
+		[CCLERICAL_EXPR_OP       ] = "op",
 	};
 	fprintf(stderr, "%*sexpr: %s of type %s\n", lvl, "", st[e->type],
 	        CCLERICAL_TYPE_STR[e->result_type]);
@@ -155,27 +161,13 @@ static void export_irram(const struct cclerical_prog *p,
 	printf("%s\n", IRRAM_FOOTER);
 }
 
-static int getoptopt(int argc, char **argv, const char *shortopts,
-                      const char *argopt)
-{
-	int opt = getopt(argc, argv, shortopts);
-	if (opt == ':') {
-		const char *c = strchr(argopt, optopt);
-		if (c) {
-			optarg = NULL;
-			return *c;
-		}
-	}
-	return opt;
-}
-
 #define DIE(code,...) do { fprintf(stderr, __VA_ARGS__); exit(code); } while (0)
 
 int main(int argc, char **argv)
 {
-	for (int opt; (opt = getoptopt(argc, argv, ":b:D:hi:mt:U:x:", "b")) != -1;)
+	for (int opt; (opt = getopt(argc, argv, ":b:D:hi:mt:U:x:")) != -1;)
 		switch (opt) {
-		case 'b': printf("b: %s\n", optarg); break;
+		case 'b': break;
 		case 'h':
 			printf("usage: %s [-OPTS] [FILE|-]\n", argv[0]);
 			printf("\n\
