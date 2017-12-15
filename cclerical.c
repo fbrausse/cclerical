@@ -90,7 +90,10 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 		cclerical_cases_fini(&e->cases);
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
-		cclerical_expr_destroy(e->decl_asgn.expr);
+		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
+			struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
+			cclerical_expr_destroy(f);
+		}
 		cclerical_prog_destroy(e->decl_asgn.prog);
 		break;
 	case CCLERICAL_EXPR_LIM:

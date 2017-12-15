@@ -86,6 +86,7 @@ end		{ return TK_END; }
 do		{ return TK_DO; }
 function	{ return TK_FUN; }
 external	{ return TK_EXTERNAL; }
+and		{ return TK_AND; }
 
 false		{
 			cnst_bool(&yylval->cnst, 0);

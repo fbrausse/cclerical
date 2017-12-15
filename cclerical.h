@@ -108,8 +108,9 @@ struct cclerical_expr {
 			struct cclerical_scope local;
 		} lim;
 		struct cclerical_stmt_decl_asgn {
-			cclerical_id_t var;
-			struct cclerical_expr *expr;
+			/* of type { (void *)(uintptr_t)cclerical_id_t;
+			 *           struct cclerical_expr * } */
+			struct cclerical_vector inits;
 			struct cclerical_prog *prog;
 		} decl_asgn;
 	};

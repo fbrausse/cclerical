@@ -24,9 +24,12 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 	        CCLERICAL_TYPE_STR[e->result_type]);
 	switch (e->type) {
 	case CCLERICAL_EXPR_DECL_ASGN:
-		fprintf(stderr, "%*sdecl-asgn setting var #%zu to\n", lvl, "",
-		        e->decl_asgn.var);
-		pexpr(e->decl_asgn.expr, lvl+1);
+		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
+			cclerical_id_t v = (uintptr_t)e->decl_asgn.inits.data[i];
+			fprintf(stderr, "%*sinit %zu: setting var #%zu to\n",
+			        lvl, "", i/2, v);
+			pexpr(e->decl_asgn.inits.data[i+1], lvl+1);
+		}
 		fprintf(stderr, "%*sdecl-asgn computing\n", lvl, "");
 		pprog(e->decl_asgn.prog, lvl+1);
 		fprintf(stderr, "%*s decl-asgn done\n", lvl, "");

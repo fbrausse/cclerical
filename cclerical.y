@@ -56,6 +56,11 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 	struct cclerical_vector cases;
 	struct cclerical_constant cnst;
 	struct cclerical_vector params;
+	struct {
+		cclerical_id_t varref;
+		struct cclerical_expr *expr;
+	} init;
+	struct cclerical_vector inits;
 };
 
 %locations
@@ -82,6 +87,7 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 %token TK_DO		"do"
 %token TK_FUN		"function"
 %token TK_EXTERNAL	"external"
+%token TK_AND		"and"
 
 %token TK_ASGN		":="
 %token TK_RSARROW	"->"
@@ -116,6 +122,8 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 %type <params> extfun_decl_params extfun_decl_params_spec
 %type <params> fun_decl_params fun_decl_params_spec
 %type <params> fun_call_params fun_call_param_spec
+%type <init> var_init
+%type <inits> var_init_list
 
 %start tu
 
@@ -274,24 +282,12 @@ expr
 	$$->lim.local = cclerical_parser_close_scope(p);
 	EXPR_NEW($$);
     }
-  | TK_VAR IDENT TK_ASGN expr ':' type
-    {
-	EXPR($4, 1U << $6);
-	cclerical_parser_open_scope(p);
-	int r = cclerical_parser_new_var(p, $2, $6, &$<varref>$);
-	if (r) {
-		ERROR(&yylloc, "error defining variable '%s': %s\n",
-		      $2, strerror(r));
-		free($2);
-		YYERROR;
-	}
-    }
-    TK_IN prog TK_END
+  | TK_VAR { cclerical_parser_open_scope(p); }
+    var_init_list TK_IN prog TK_END
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
-	$$->decl_asgn.var  = $<varref>7;
-	$$->decl_asgn.expr = $4;
-	$$->decl_asgn.prog = $9;
+	$$->decl_asgn.inits = $3;
+	$$->decl_asgn.prog = $5;
 	EXPR_NEW($$);
 	free(cclerical_parser_close_scope(p).var_idcs.data);
     }
@@ -315,6 +311,33 @@ expr
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_CNST);
 	$$->cnst = $1;
 	EXPR_NEW($$);
+    }
+
+var_init_list
+  : var_init
+    {
+	cclerical_vector_init(&$$);
+	cclerical_vector_add(&$$, (void *)(uintptr_t)$1.varref);
+	cclerical_vector_add(&$$, $1.expr);
+    }
+  | var_init_list TK_AND var_init
+    {
+	$$ = $1;
+	cclerical_vector_add(&$$, (void *)(uintptr_t)$3.varref);
+	cclerical_vector_add(&$$, $3.expr);
+    }
+
+var_init
+  : IDENT TK_ASGN expr
+    {
+	int r = cclerical_parser_new_var(p, $1, $3->result_type, &$$.varref);
+	if (r) {
+		ERROR(&yylloc, "error defining variable '%s': %s\n",
+		      $1, strerror(r));
+		free($1);
+		YYERROR;
+	}
+	$$.expr = $3;
     }
 
 fun_call_param_spec
