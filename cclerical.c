@@ -214,20 +214,21 @@ int cclerical_parser_new_var(struct cclerical_parser *p, char *id,
 {
 	struct cclerical_decl d = {
 		.type = CCLERICAL_DECL_VAR,
+		.value_type = type,
 		.id = id,
-		.var = {
-			.type = type,
-		},
+		.var = {},
 	};
 	return cclerical_parser_new_decl(p, &d, v);
 }
 
 int cclerical_parser_new_fun(struct cclerical_parser *p,
-                             char *id, struct cclerical_vector arguments,
+                             char *id, enum cclerical_type type,
+                             struct cclerical_vector arguments,
                              struct cclerical_prog *body, cclerical_id_t *v)
 {
 	struct cclerical_decl d = {
 		.type = CCLERICAL_DECL_FUN,
+		.value_type = type,
 		.id = id,
 		.fun = {
 			.arguments = arguments,
@@ -263,7 +264,8 @@ void cclerical_decl_destroy(struct cclerical_decl *d)
 		break;
 	case CCLERICAL_DECL_FUN:
 		cclerical_vector_fini(&d->fun.arguments);
-		cclerical_prog_destroy(d->fun.body);
+		if (d->fun.body)
+			cclerical_prog_destroy(d->fun.body);
 		break;
 	}
 	free(d);

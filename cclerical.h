@@ -180,13 +180,15 @@ struct cclerical_decl {
 		CCLERICAL_DECL_VAR,
 		CCLERICAL_DECL_FUN,
 	} type;
+	enum cclerical_type value_type;
 	char *id;
 	union {
+		struct {} var;
 		struct {
-			enum cclerical_type type;
-		} var;
-		struct {
-			struct cclerical_vector arguments; /* of type (void *)(uintptr_t)cclerical_id_t */
+			/* if body: of type (void *)(uintptr_t)cclerical_id_t
+			 * else   : of type (void *)(uintptr_t)cclerical_type */
+			struct cclerical_vector arguments;
+			/* may be NULL for declarations of "external" functions */
 			struct cclerical_prog *body;
 		} fun;
 	};
@@ -207,7 +209,8 @@ int  cclerical_parser_new_var(struct cclerical_parser *p, char *id,
                               enum cclerical_type type, cclerical_id_t *v);
 
 int cclerical_parser_new_fun(struct cclerical_parser *p,
-                             char *id, struct cclerical_vector arguments,
+                             char *id, enum cclerical_type type,
+                             struct cclerical_vector arguments,
                              struct cclerical_prog *body, cclerical_id_t *v);
 
 void cclerical_parser_open_scope(struct cclerical_parser *p);

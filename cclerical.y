@@ -81,9 +81,11 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 %token TK_END		"end"
 %token TK_DO		"do"
 %token TK_FUN		"function"
+%token TK_EXTERNAL	"external"
 
 %token TK_ASGN		":="
-%token TK_RARROW	"=>"
+%token TK_RSARROW	"->"
+%token TK_RDARROW	"=>"
 %token TK_NE		"/="
 %token TK_BARS		"||"
 
@@ -108,10 +110,10 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 %type <prog> prog else_branch
 %type <stmt> stmt
 %type <expr> expr var_init
-%type <type> type
+%type <type> type utype
 %type <cases> cases
 %type <varref> lim_init fun_decl_param fun_decl
-%type <params> fun_decl_params fun_decl_params_spec
+%type <params> fun_decl_params fun_decl_params_spec extfun_decl_params extfun_decl_params_spec
 %type <params> fun_call_params fun_call_param_spec
 %type <ident> fun_decl_init
 
@@ -131,7 +133,27 @@ fun_decl
   : fun_decl_init '(' fun_decl_params_spec ')' ':' prog
     {
 	free(cclerical_parser_close_scope(p).var_idcs.data);
-	cclerical_parser_new_fun(p, $1, $3, $6, &$$);
+	cclerical_parser_new_fun(p, $1, cclerical_prog_type($6), $3, $6, &$$);
+    }
+  | TK_EXTERNAL IDENT '(' extfun_decl_params_spec ')' TK_RSARROW utype
+    {
+	cclerical_parser_new_fun(p, $2, $7, $4, NULL, &$$);
+    }
+
+extfun_decl_params_spec
+  : %empty { cclerical_vector_init(&$$); }
+  | extfun_decl_params
+
+extfun_decl_params
+  : type
+    {
+	cclerical_vector_init(&$$);
+	cclerical_vector_add(&$$, (void *)(uintptr_t)$1);
+    }
+  | extfun_decl_params ',' type
+    {
+	$$ = $1;
+	cclerical_vector_add(&$$, (void *)(uintptr_t)$3);
     }
 
 fun_decl_init
@@ -183,7 +205,7 @@ stmt
 	if (!lookup_var(p, $1, &v, &yylloc, 1))
 		YYERROR;
 	struct cclerical_decl *d = p->decls.data[v];
-	EXPR($3, 1U << d->var.type);
+	EXPR($3, 1U << d->value_type);
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_ASGN);
 	$$->asgn.var = v;
 	$$->asgn.expr = $3;
@@ -234,7 +256,7 @@ expr
 	$$->cases = $2;
 	EXPR_NEW($$);
     }
-  | lim_init TK_RARROW prog TK_END
+  | lim_init TK_RDARROW prog TK_END
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_LIM);
 	$$->lim.seq_idx = $1;
@@ -319,13 +341,13 @@ lim_init
     }
 
 cases
-  : expr TK_RARROW prog
+  : expr TK_RDARROW prog
     {
 	cclerical_vector_init(&$$);
 	cclerical_vector_add(&$$, $1);
 	cclerical_vector_add(&$$, $3);
     }
-  | cases TK_BARS expr TK_RARROW prog
+  | cases TK_BARS expr TK_RDARROW prog
     {
 	$$ = $1;
 	cclerical_vector_add(&$$, $3);
@@ -336,6 +358,10 @@ type
   : TK_BOOL { $$ = CCLERICAL_TYPE_BOOL; }
   | TK_INT  { $$ = CCLERICAL_TYPE_INT; }
   | TK_REAL { $$ = CCLERICAL_TYPE_REAL; }
+
+utype
+  : type
+  | TK_UNIT { $$ = CCLERICAL_TYPE_UNIT; }
 
 %%
 
@@ -479,12 +505,12 @@ static int expr_super_types(const struct cclerical_parser *p,
 		break;
 	case CCLERICAL_EXPR_VAR: {
 		const struct cclerical_decl *v = p->decls.data[e->var];
-		expr_t = v->var.type;
+		expr_t = v->value_type;
 		break;
 	}
 	case CCLERICAL_EXPR_FUN_CALL: {
 		const struct cclerical_decl *f = p->decls.data[e->fun_call.fun];
-		expr_t = cclerical_prog_type(f->fun.body);
+		expr_t = f->value_type;
 		break;
 	}
 	}
@@ -548,11 +574,11 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 		struct cclerical_expr *e = params.data[i];
 		cclerical_id_t param = (uintptr_t)d->fun.arguments.data[i];
 		struct cclerical_decl *dparam = p->decls.data[param];
-		if ((1U << dparam->var.type) & super_types(e->result_type))
+		if ((1U << dparam->value_type) & super_types(e->result_type))
 			continue;
 		ERROR(locp, "in function-call to %s: type mismatch of argument "
 		            "%zu: exprected %s, expression is of type %s",
-		     d->id, CCLERICAL_TYPE_STR[dparam->var.type],
+		     d->id, CCLERICAL_TYPE_STR[dparam->value_type],
 		     CCLERICAL_TYPE_STR[e->result_type]);
 		return NULL;
 	}

@@ -85,6 +85,7 @@ while		{ return TK_WHILE; }
 end		{ return TK_END; }
 do		{ return TK_DO; }
 function	{ return TK_FUN; }
+external	{ return TK_EXTERNAL; }
 
 false		{
 			cnst_bool(&yylval->cnst, 0);
@@ -97,7 +98,8 @@ true		{
 		}
 
 :=		{ return TK_ASGN; }
-=>		{ return TK_RARROW; }
+->              { return TK_RSARROW; }
+=>		{ return TK_RDARROW; }
 \|\|		{ return TK_BARS; }
 
 [+*/:;,^()=<>-]	{ return yytext[0]; }
