@@ -365,18 +365,28 @@ utype
 
 %%
 
-static inline void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
-                                    const char *fmt, ...)
+static void print_range(FILE *f, int a, int b)
 {
-	fprintf(stderr,
+	if (a == b)
+		fprintf(f, "%d", a);
+	else
+		fprintf(f, "%d-%d", a, b);
+}
+
+static void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
+                             const char *fmt, ...)
+{
 #ifndef NDEBUG
-	        "%s:%d: error at %d-%d:%d-%d: ",
-	        file, lineno,
+	fprintf(stderr, "%s:%d: ", file, lineno);
 #else
-	        "error at %d-%d.%d-%d: ",
+	(void)file;
+	(void)lineno;
 #endif
-	        locp->first_line, locp->last_line,
-	        locp->first_column, locp->last_column);
+	fprintf(stderr, "error at ");
+	print_range(stderr, locp->first_line, locp->last_line);
+	fprintf(stderr, ".");
+	print_range(stderr, locp->first_column, locp->last_column);
+	fprintf(stderr, ": ");
 	va_list ap;
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
