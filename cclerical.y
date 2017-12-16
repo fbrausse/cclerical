@@ -18,7 +18,8 @@ static void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
 #define cclerical_error(locp,p,scanner,...) ERROR(locp, __VA_ARGS__)
 
 static int lookup_var(struct cclerical_parser *p, char *id,
-                      cclerical_id_t *v, YYLTYPE *locp, int rw);
+                      cclerical_id_t *v, YYLTYPE *locp, int rw,
+                      const char *id_desc);
 
 #define TYPES_ALL (1U << CCLERICAL_TYPE_UNIT | \
                    1U << CCLERICAL_TYPE_BOOL | \
@@ -209,7 +210,7 @@ stmt
   : IDENT TK_ASGN expr
     {
 	cclerical_id_t v;
-	if (!lookup_var(p, $1, &v, &yylloc, 1))
+	if (!lookup_var(p, $1, &v, &yylloc, 1, "variable"))
 		YYERROR;
 	struct cclerical_decl *d = p->decls.data[v];
 	EXPR($3, 1U << d->value_type);
@@ -300,7 +301,7 @@ expr
   | IDENT
     {
 	cclerical_id_t v;
-	if (!lookup_var(p, $1, &v, &yylloc, 0))
+	if (!lookup_var(p, $1, &v, &yylloc, 0, "variable"))
 		YYERROR;
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_VAR);
 	$$->var = v;
@@ -411,11 +412,12 @@ static void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
 }
 
 static int lookup_var(struct cclerical_parser *p, char *id,
-                      cclerical_id_t *v, YYLTYPE *locp, int rw)
+                      cclerical_id_t *v, YYLTYPE *locp, int rw,
+                      const char *id_desc)
 {
 	int r = cclerical_parser_var_lookup(p, id, v, rw);
 	if (!r) {
-		ERROR(locp, "variable '%s' is %s in this context", id,
+		ERROR(locp, "%s '%s' is %s in this context", id_desc, id,
 		      rw && cclerical_parser_var_lookup(p, id, v, 0)
 		      ? "read-only" : "not defined");
 		free(id);
@@ -581,10 +583,8 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
                                         struct cclerical_vector params)
 {
 	cclerical_id_t v;
-	if (!lookup_var(p, id, &v, locp, 0)) {
-		ERROR(locp, "call to undeclared function identifier '%s'", id);
+	if (!lookup_var(p, id, &v, locp, 0, "function"))
 		return NULL;
-	}
 	struct cclerical_decl *d = p->decls.data[v];
 	if (d->type != CCLERICAL_DECL_FUN) {
 		ERROR(locp, "'%s' does not identify a function", d->id);
@@ -600,11 +600,11 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 		struct cclerical_expr *e = params.data[i];
 		cclerical_id_t param = (uintptr_t)d->fun.arguments.data[i];
 		struct cclerical_decl *dparam = p->decls.data[param];
-		if ((1U << dparam->value_type) & super_types(e->result_type))
+		if ((1U << dparam->value_type) & super_types(e->result_type)) /* TODO: no implicit casts! */
 			continue;
 		ERROR(locp, "in function-call to %s: type mismatch of argument "
 		            "%zu: exprected %s, expression is of type %s",
-		     d->id, CCLERICAL_TYPE_STR[dparam->value_type],
+		     d->id, i, CCLERICAL_TYPE_STR[dparam->value_type],
 		     CCLERICAL_TYPE_STR[e->result_type]);
 		return NULL;
 	}

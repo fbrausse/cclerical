@@ -173,10 +173,15 @@ static void export_irram_var_decl(const vec_t *decls, cclerical_id_t ai, int con
 static void export_irram_fun_decl(const vec_t *decls, cclerical_id_t i)
 {
 	struct cclerical_decl *d = decls->data[i];
-	printf("/* clerical fun: %s */\n%s%s %s%zu(",
-	       d->id, d->fun.body ? "static " : "",
-	       CCLERICAL_iRRAM_TYPES[d->value_type],
-	       CCL_PREFIX, i);
+	if (d->fun.body) {
+		printf("/* clerical fun: %s */\n", d->id);
+		printf("static %s %s%zu(",
+		       CCLERICAL_iRRAM_TYPES[d->value_type], CCL_PREFIX, i);
+	} else {
+		printf("/* clerical external fun #%zu: %s */\n", i, d->id);
+		printf("namespace cclerical {\n");
+		printf("%s %s(", CCLERICAL_iRRAM_TYPES[d->value_type], d->id);
+	}
 	for (size_t j=0; j<d->fun.arguments.valid; j++) {
 		cclerical_id_t ai = (uintptr_t)d->fun.arguments.data[j];
 		export_irram_var_decl(decls, ai, 0);
@@ -184,6 +189,8 @@ static void export_irram_fun_decl(const vec_t *decls, cclerical_id_t i)
 			printf(", ");
 	}
 	printf(")");
+	if (!d->fun.body)
+		printf(";\n}");
 }
 
 static void cclprintf(int lvl, const char *fmt, ...)
@@ -290,7 +297,7 @@ static void visit_prev_scope(const vec_t *decls, cclerical_id_t v,
 	struct visit_prev_scope_args *a = cb_data;
 	(void)decls;
 	(void)access;
-	if (v >= a->up_excl)
+	if (v >= a->up_excl || access != VAR_ACCESS_RO)
 		return;
 	for (size_t i=0; i<a->vars->valid; i++)
 		if ((uintptr_t)a->vars->data[i] == v)
@@ -339,13 +346,18 @@ static void export_irram_expr(const vec_t *decls,
 	case CCLERICAL_EXPR_VAR:
 		cclprintf(0, "%s%zu", CCL_PREFIX, e->var);
 		break;
-	case CCLERICAL_EXPR_FUN_CALL:
-		cclprintf(0, "%s%zu(", CCL_PREFIX, e->fun_call.fun);
+	case CCLERICAL_EXPR_FUN_CALL: {
+		const struct cclerical_decl *d = decls->data[e->fun_call.fun];
+		if (d->fun.body)
+			cclprintf(0, "%s%zu(", CCL_PREFIX, e->fun_call.fun);
+		else
+			cclprintf(0, "cclerical::%s(", d->id);
 		for (size_t i=0; i<e->fun_call.params.valid; i++) {
 			export_irram_expr(decls, e->fun_call.params.data[i], lvl);
 			cclprintf(0, i+1 < e->fun_call.params.valid ? ", " : ")");
 		}
 		break;
+	}
 	case CCLERICAL_EXPR_OP:
 		if (e->op.op == CCLERICAL_OP_NEG) {
 			cclprintf(0, "-(");
@@ -353,11 +365,11 @@ static void export_irram_expr(const vec_t *decls,
 			cclprintf(0, ")");
 			break;
 		} else if (e->op.op == CCLERICAL_OP_EXP) {
-			cclprintf(0, "exp(");
+			cclprintf(0, "power((");
 			export_irram_expr(decls, e->op.arg1, lvl);
 			cclprintf(0, "), (");
 			export_irram_expr(decls, e->op.arg2, lvl);
-			cclprintf(0, ")");
+			cclprintf(0, "))");
 		} else {
 			cclprintf(0, "(");
 			export_irram_expr(decls, e->op.arg1, lvl);
