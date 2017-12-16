@@ -3,9 +3,12 @@ LEXFLAGS = --batch
 YFLAGS = -v
 CFLAGS = -Wall -Wextra -O0 -g
 
-.PHONY: clean
+.PHONY: clean examples
 
 ccl: ccl.o cclerical.tab.o cclerical.lex.o cclerical.o
+
+examples: ccl
+	$(MAKE) -C examples
 
 # cancelling rules for cclerical.c
 %.c: %.y
@@ -26,3 +29,4 @@ cclerical.lex.c cclerical.lex.h: cclerical.l
 
 clean:
 	$(RM) ccl ccl.o cclerical.tab.* cclerical.lex.* cclerical.o cclerical.output
+	$(MAKE) -C examples clean
