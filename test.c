@@ -177,20 +177,23 @@ static void export_irram_fun_decl(const vec_t *decls, cclerical_id_t i)
 		printf("/* clerical fun: %s */\n", d->id);
 		printf("static %s %s%zu(",
 		       CCLERICAL_iRRAM_TYPES[d->value_type], CCL_PREFIX, i);
+		for (size_t j=0; j<d->fun.arguments.valid; j++) {
+			cclerical_id_t ai = (uintptr_t)d->fun.arguments.data[j];
+			export_irram_var_decl(decls, ai, 0);
+			if (j+1 < d->fun.arguments.valid)
+				printf(", ");
+		}
+		printf(")");
 	} else {
 		printf("/* clerical external fun #%zu: %s */\n", i, d->id);
 		printf("namespace cclerical {\n");
 		printf("%s %s(", CCLERICAL_iRRAM_TYPES[d->value_type], d->id);
+		for (size_t j=0; j<d->fun.arguments.valid; j++) {
+			enum cclerical_type t = (uintptr_t)d->fun.arguments.data[j];
+			printf("%s%s", j ? ", " : "", CCLERICAL_iRRAM_TYPES[t]);
+		}
+		printf(");\n}");
 	}
-	for (size_t j=0; j<d->fun.arguments.valid; j++) {
-		cclerical_id_t ai = (uintptr_t)d->fun.arguments.data[j];
-		export_irram_var_decl(decls, ai, 0);
-		if (j+1 < d->fun.arguments.valid)
-			printf(", ");
-	}
-	printf(")");
-	if (!d->fun.body)
-		printf(";\n}");
 }
 
 static void cclprintf(int lvl, const char *fmt, ...)
@@ -517,7 +520,7 @@ Options [default]:\n\
   -m         enable support for TGT's default math library functions\n\
   -o OUTPUT  write compiled TGT source file to OUTPUT [stdout]\n\
   -U DEFINE  #undef DEFINE constant\n\
-  -x DIALECT choose cclerical dialect DIALECT [T17]; supported: T17, Matlab, bc\n\
+  -x DIALECT choose cclerical DIALECT [T17]; supported: T17, Matlab, bc\n\
 \n\
 This program is distributed under BSD-3 license.\n\
 Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");

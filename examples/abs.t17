@@ -1,0 +1,15 @@
+external real(Int) -> Real
+
+function abs(Real x):
+	lim n =>
+		var eps := 2.0^real(-n) in
+		case
+			x < eps => -x
+		||
+			x > eps => x
+		end
+		end
+	end
+
+do
+	abs(-0.0)
