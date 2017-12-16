@@ -605,7 +605,7 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 			arg_type = dparam->value_type;
 		} else
 			arg_type = (uintptr_t)d->fun.arguments.data[i];
-		// if ((1U << arg_type) & super_types(e->result_type)) /* TODO: no implicit casts! */
+		// if ((1U << arg_type) & super_types(e->result_type)) /* no implicit casts! */
 		if (arg_type == e->result_type)
 			continue;
 		ERROR(locp, "in function-call to %s: type mismatch of argument "
