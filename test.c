@@ -506,25 +506,25 @@ int main(int argc, char **argv)
 {
 	for (int opt; (opt = getopt(argc, argv, ":b:D:hi:mt:U:x:")) != -1;)
 		switch (opt) {
-		case 'b': break;
+		case 'b':
+			if (!strcmp(optarg, "iRRAM")) break;
+			DIE(1,"error: just TGT 'iRRAM' supported for option '-b'\n");
 		case 'h':
 			printf("usage: %s [-OPTS] [--]\n", argv[0]);
 			printf("\n\
 Options [default]:\n\
-  -b TGT     target backend TGT [iRRAM]; supported values for TGT:\n\
-             AERN2, Ariadne, iRRAM[:type] (where type defaults to REAL), kirm\n\
+  -b TGT     target backend TGT [iRRAM]; supported values for TGT: iRRAM\n\
   -d         dump parse tree to stderr for debugging purposes\n\
-  -D DEFINE  #define DEFINE constant\n\
   -h         print this help message\n\
-  -i INT     run in interpreter mode INT; supported: iRRAM-bc, kirk-iRRAM\n\
-  -m         enable support for TGT's default math library functions\n\
   -o OUTPUT  write compiled TGT source file to OUTPUT [stdout]\n\
-  -U DEFINE  #undef DEFINE constant\n\
-  -x DIALECT choose cclerical DIALECT [T17]; supported: T17, Matlab, bc\n\
+  -x DIALECT choose cclerical DIALECT [T17]; supported: T17\n\
 \n\
 This program is distributed under BSD-3 license.\n\
 Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 			exit(0);
+		case 'x':
+			if (!strcmp(optarg, "T17")) break;
+			DIE(1,"error: just TGT 'T17' supported for option '-x'\n");
 		case '?': DIE(1,"error: unknown option '-%c'\n",optopt);
 		case ':': DIE(1,"error: option '-%c' requires a parameter\n",
 		              optopt);

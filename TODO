@@ -1,0 +1,8 @@
+Features:
+~~~~~~~~~
+- support more dialects: Andrej's, Matlab, bc
+- frontend should invoke compilers, etc. by itself
+  - allow cpp-style preprocessing, #defines, etc.?
+- add interpreter mode: iRRAM-bc, kirk-iRRAM
+- add support for target backends: AERN2, Ariadne, iRRAM:TM, kirm
+- support TGT's default math library functions in ccl's std libs
