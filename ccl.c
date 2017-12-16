@@ -504,11 +504,15 @@ static void export_irram(const struct cclerical_prog *p, const vec_t *decls)
 
 int main(int argc, char **argv)
 {
-	for (int opt; (opt = getopt(argc, argv, ":b:D:hi:mt:U:x:")) != -1;)
+	int dump_parse_tree = 0;
+
+	for (int opt; (opt = getopt(argc, argv, ":b:dhx:")) != -1;)
 		switch (opt) {
 		case 'b':
 			if (!strcmp(optarg, "iRRAM")) break;
-			DIE(1,"error: just TGT 'iRRAM' supported for option '-b'\n");
+			DIE(1,"error: just TGT 'iRRAM' supported for option "
+			      "'-b'\n");
+		case 'd': dump_parse_tree = 1; break;
 		case 'h':
 			printf("usage: %s [-OPTS] [--]\n", argv[0]);
 			printf("\n\
@@ -524,7 +528,8 @@ Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 			exit(0);
 		case 'x':
 			if (!strcmp(optarg, "T17")) break;
-			DIE(1,"error: just TGT 'T17' supported for option '-x'\n");
+			DIE(1,"error: just TGT 'T17' supported for option "
+			      "'-x'\n");
 		case '?': DIE(1,"error: unknown option '-%c'\n",optopt);
 		case ':': DIE(1,"error: option '-%c' requires a parameter\n",
 		              optopt);
@@ -544,7 +549,8 @@ Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 		goto done;
 	}
 
-	pprog(cp, 0);
+	if (dump_parse_tree)
+		pprog(cp, 0);
 	export_irram(cp, &p.decls);
 
 done:
