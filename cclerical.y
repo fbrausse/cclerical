@@ -598,13 +598,19 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 	}
 	for (size_t i=0; i<params.valid; i++) {
 		struct cclerical_expr *e = params.data[i];
-		cclerical_id_t param = (uintptr_t)d->fun.arguments.data[i];
-		struct cclerical_decl *dparam = p->decls.data[param];
-		if ((1U << dparam->value_type) & super_types(e->result_type)) /* TODO: no implicit casts! */
+		enum cclerical_type arg_type;
+		if (d->fun.body) {
+			cclerical_id_t param = (uintptr_t)d->fun.arguments.data[i];
+			struct cclerical_decl *dparam = p->decls.data[param];
+			arg_type = dparam->value_type;
+		} else
+			arg_type = (uintptr_t)d->fun.arguments.data[i];
+		// if ((1U << arg_type) & super_types(e->result_type)) /* TODO: no implicit casts! */
+		if (arg_type == e->result_type)
 			continue;
 		ERROR(locp, "in function-call to %s: type mismatch of argument "
 		            "%zu: exprected %s, expression is of type %s",
-		     d->id, i, CCLERICAL_TYPE_STR[dparam->value_type],
+		     d->id, i, CCLERICAL_TYPE_STR[arg_type],
 		     CCLERICAL_TYPE_STR[e->result_type]);
 		return NULL;
 	}
