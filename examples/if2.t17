@@ -1,0 +1,5 @@
+function test(Int x):
+	if x>0 then skip end
+
+do
+	test(0); 0

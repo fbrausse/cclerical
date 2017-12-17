@@ -213,7 +213,8 @@ enum var_access {
 	VAR_ACCESS_CALL,
 };
 
-typedef void visit_varrefs_f(const vec_t *decls, cclerical_id_t v, enum var_access access, void *cb_data);
+typedef void visit_varrefs_f(const vec_t *decls, cclerical_id_t v,
+                             enum var_access access, void *cb_data);
 
 static void visit_varrefs_prog(const vec_t *decls, const struct cclerical_prog *p,
                                visit_varrefs_f *visit, void *cb_data);
@@ -461,7 +462,10 @@ static void export_irram_prog(const vec_t *decls,
 			cclprintf(0, ";\n");
 			break;
 		case CCLERICAL_STMT_EXPR: {
-			cclprintf(lvl, "%s", i+1 == p->stmts.valid ? "return " : "");
+			cclprintf(lvl, "%s",
+			          i+1 == p->stmts.valid &&
+			          s->expr->result_type != CCLERICAL_TYPE_UNIT
+			          ? "return " : "");
 			export_irram_expr(decls, s->expr, lvl);
 			cclprintf(0, ";\n");
 			break;

@@ -8,6 +8,7 @@ LDLIBS   = -liRRAM -lmpfr -lgmp
 EXAMPLES = \
 	abs \
 	if \
+	if2 \
 	sqrt \
 
 .PHONY: all clean
