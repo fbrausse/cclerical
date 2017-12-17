@@ -21,6 +21,9 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		[CCLERICAL_EXPR_LIM      ] = "lim",
 		[CCLERICAL_EXPR_OP       ] = "op",
 		[CCLERICAL_EXPR_IF       ] = "if",
+		[CCLERICAL_EXPR_ASGN     ] = "asgn",
+		[CCLERICAL_EXPR_SKIP     ] = "skip",
+		[CCLERICAL_EXPR_WHILE    ] = "while",
 	};
 	fprintf(stderr, "%*sexpr: %s of type %s\n", lvl, "", st[e->type],
 	        CCLERICAL_TYPE_STR[e->result_type]);
@@ -97,30 +100,30 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 			pprog(e->cases.data[i+1], lvl+1);
 		}
 		break;
+	case CCLERICAL_EXPR_SKIP:
+		break;
+	case CCLERICAL_EXPR_ASGN:
+		fprintf(stderr, "%*sasgn var #%zu from\n", lvl, "", e->asgn.var);
+		pexpr(e->asgn.expr, lvl+1);
+		break;
+	case CCLERICAL_EXPR_WHILE:
+		fprintf(stderr, "%*swhile cond:\n", lvl, "");
+		pexpr(e->loop.cond, lvl+1);
+		fprintf(stderr, "%*swhile body:\n", lvl, "");
+		pprog(e->loop.body, lvl+1);
+		break;
 	}
 }
 
 static void pstmt(const struct cclerical_stmt *s, int lvl)
 {
 	static const char *const st[] = {
-		"skip", "while", "asgn", "expr",
+		"expr"
 	};
 	fprintf(stderr, "%*sstmt: %s\n", lvl, "", st[s->type]);
 	switch (s->type) {
 	case CCLERICAL_STMT_EXPR:
 		pexpr(s->expr, lvl+1);
-		break;
-	case CCLERICAL_STMT_SKIP:
-		break;
-	case CCLERICAL_STMT_ASGN:
-		fprintf(stderr, "%*sasgn var #%zu from\n", lvl, "", s->asgn.var);
-		pexpr(s->asgn.expr, lvl+1);
-		break;
-	case CCLERICAL_STMT_WHILE:
-		fprintf(stderr, "%*swhile cond:\n", lvl, "");
-		pexpr(s->loop.cond, lvl+1);
-		fprintf(stderr, "%*swhile body:\n", lvl, "");
-		pprog(s->loop.body, lvl+1);
 		break;
 	}
 }
@@ -262,6 +265,16 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 	case CCLERICAL_EXPR_VAR:
 		visit(decls, e->var, VAR_ACCESS_RO, cb_data);
 		break;
+	case CCLERICAL_EXPR_ASGN:
+		visit(decls, e->asgn.var, VAR_ACCESS_RW, cb_data);
+		visit_varrefs_expr(decls, e->asgn.expr, visit, cb_data);
+		break;
+	case CCLERICAL_EXPR_SKIP:
+		break;
+	case CCLERICAL_EXPR_WHILE:
+		visit_varrefs_expr(decls, e->loop.cond, visit, cb_data);
+		visit_varrefs_prog(decls, e->loop.body, visit, cb_data);
+		break;
 	}
 }
 
@@ -271,18 +284,8 @@ static void visit_varrefs_prog(const vec_t *decls, const struct cclerical_prog *
 	for (size_t i=0; i<p->stmts.valid; i++) {
 		const struct cclerical_stmt *s = p->stmts.data[i];
 		switch (s->type) {
-		case CCLERICAL_STMT_ASGN:
-			visit(decls, s->asgn.var, VAR_ACCESS_RW, cb_data);
-			visit_varrefs_expr(decls, s->asgn.expr, visit, cb_data);
-			break;
 		case CCLERICAL_STMT_EXPR:
 			visit_varrefs_expr(decls, s->expr, visit, cb_data);
-			break;
-		case CCLERICAL_STMT_SKIP:
-			break;
-		case CCLERICAL_STMT_WHILE:
-			visit_varrefs_expr(decls, s->loop.cond, visit, cb_data);
-			visit_varrefs_prog(decls, s->loop.body, visit, cb_data);
 			break;
 		}
 	}
@@ -441,6 +444,21 @@ static void export_irram_expr(const vec_t *decls,
 		cclerical_vector_fini(&prev_scope_vars);
 		break;
 	}
+	/* these return Unit, no encapsulation into lambda-fun required */
+	case CCLERICAL_EXPR_WHILE:
+		cclprintf(lvl, "while (");
+		export_irram_expr(decls, e->loop.cond, lvl);
+		cclprintf(0, ")\n");
+		export_irram_prog(decls, e->loop.body, lvl+1);
+		break;
+	case CCLERICAL_EXPR_ASGN:
+		cclprintf(lvl, "%s%zu = ", CCL_PREFIX, e->asgn.var);
+		export_irram_expr(decls, e->asgn.expr, lvl);
+		cclprintf(0, ";\n");
+		break;
+	case CCLERICAL_EXPR_SKIP:
+		cclprintf(lvl, ";\n");
+		break;
 	}
 }
 
@@ -451,17 +469,6 @@ static void export_irram_prog(const vec_t *decls,
 	for (size_t i=0; i<p->stmts.valid; i++) {
 		struct cclerical_stmt *s = p->stmts.data[i];
 		switch (s->type) {
-		case CCLERICAL_STMT_WHILE:
-			cclprintf(lvl, "while (");
-			export_irram_expr(decls, s->loop.cond, lvl);
-			cclprintf(0, ")\n");
-			export_irram_prog(decls, s->loop.body, lvl+1);
-			break;
-		case CCLERICAL_STMT_ASGN:
-			cclprintf(lvl, "%s%zu = ", CCL_PREFIX, s->asgn.var);
-			export_irram_expr(decls, s->asgn.expr, lvl);
-			cclprintf(0, ";\n");
-			break;
 		case CCLERICAL_STMT_EXPR: {
 			cclprintf(lvl, "%s",
 			          i+1 == p->stmts.valid &&
@@ -471,9 +478,6 @@ static void export_irram_prog(const vec_t *decls,
 			cclprintf(0, ";\n");
 			break;
 		}
-		case CCLERICAL_STMT_SKIP:
-			cclprintf(lvl, ";\n");
-			break;
 		}
 	}
 	cclprintf(lvl-1, "}\n");

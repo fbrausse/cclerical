@@ -116,7 +116,7 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 
 %type <prog> prog else_branch
 %type <stmt> stmt
-%type <expr> expr
+%type <expr> expr simple_expr
 %type <type> type utype
 %type <cases> cases
 %type <varref> fun_decl_param fun_decl
@@ -207,91 +207,24 @@ prog
     }
 
 stmt
-  : IDENT TK_ASGN expr
-    {
-	cclerical_id_t v;
-	if (!lookup_var(p, $1, &v, &yylloc, 1, "variable"))
-		YYERROR;
-	struct cclerical_decl *d = p->decls.data[v];
-	EXPR($3, 1U << d->value_type);
-	$$ = cclerical_stmt_create(CCLERICAL_STMT_ASGN);
-	$$->asgn.var = v;
-	$$->asgn.expr = $3;
-    }
-  | TK_SKIP { $$ = cclerical_stmt_create(CCLERICAL_STMT_SKIP); }
-  | TK_WHILE expr TK_DO prog TK_END
-    {
-	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
-	$$ = cclerical_stmt_create(CCLERICAL_STMT_WHILE);
-	$$->loop.cond = $2;
-	$$->loop.body = $4;
-    }
-  | expr
+  : expr
     {
 	$$ = cclerical_stmt_create(CCLERICAL_STMT_EXPR);
 	$$->expr = $1;
     }
 
-else_branch
-  : %empty { $$ = NULL; }
-  | TK_ELSE prog { $$ = $2; }
-
-expr
-  : expr '+' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_ADD, $1, $3)); }
-  | expr '-' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_SUB, $1, $3)); }
-  | expr '*' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_MUL, $1, $3)); }
-  | expr '/' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_DIV, $1, $3)); }
-  | expr '^' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_EXP, $1, $3)); }
-  | expr '<' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_LT, $1, $3)); }
-  | expr '>' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GT, $1, $3)); }
-  | expr TK_NE expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3)); }
-  | '-' expr %prec UMINUS
+simple_expr
+  : simple_expr '+' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_ADD, $1, $3)); }
+  | simple_expr '-' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_SUB, $1, $3)); }
+  | simple_expr '*' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_MUL, $1, $3)); }
+  | simple_expr '/' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_DIV, $1, $3)); }
+  | simple_expr '^' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_EXP, $1, $3)); }
+  | simple_expr '<' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_LT, $1, $3)); }
+  | simple_expr '>' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GT, $1, $3)); }
+  | simple_expr TK_NE simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3)); }
+  | '-' simple_expr %prec UMINUS
     {
 	EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NEG, $2, NULL));
-    }
-  | '(' expr ')'  { $$ = $2; }
-  | TK_CASE cases TK_END
-    {
-	$$ = cclerical_expr_create(CCLERICAL_EXPR_CASE);
-	$$->cases = $2;
-	EXPR_NEW($$);
-    }
-  | TK_IF expr TK_THEN prog else_branch TK_END
-    {
-	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
-	$$ = cclerical_expr_create(CCLERICAL_EXPR_IF);
-	$$->branch.cond = $2;
-	$$->branch.if_true = $4;
-	$$->branch.if_false = $5;
-	EXPR_NEW($$);
-    }
-  | TK_LIM IDENT
-    {
-	cclerical_parser_open_scope(p, 0, 1);
-	int r = cclerical_parser_new_var(p, $2, CCLERICAL_TYPE_INT, &$<varref>$);
-	if (r) {
-		ERROR(&yylloc, "error declaring variable '%s' in lim: %s\n",
-		      $2, strerror(r));
-		free($2);
-		YYERROR;
-	}
-    }
-    TK_RDARROW prog TK_END
-    {
-	$$ = cclerical_expr_create(CCLERICAL_EXPR_LIM);
-	$$->lim.seq_idx = $<varref>3;
-	$$->lim.seq = $5;
-	$$->lim.local = cclerical_parser_close_scope(p);
-	EXPR_NEW($$);
-    }
-  | TK_VAR { cclerical_parser_open_scope(p, 0, 0); }
-    var_init_list TK_IN prog TK_END
-    {
-	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
-	$$->decl_asgn.inits = $3;
-	$$->decl_asgn.prog = $5;
-	EXPR_NEW($$);
-	free(cclerical_parser_close_scope(p).var_idcs.data);
     }
   | IDENT '(' fun_call_param_spec ')'
     {
@@ -312,6 +245,78 @@ expr
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_CNST);
 	$$->cnst = $1;
+	EXPR_NEW($$);
+    }
+  | '(' expr ')'  { $$ = $2; }
+
+else_branch
+  : %empty { $$ = NULL; }
+  | TK_ELSE prog { $$ = $2; }
+
+expr
+  : simple_expr
+  | TK_LIM IDENT
+    {
+	cclerical_parser_open_scope(p, 0, 1);
+	int r = cclerical_parser_new_var(p, $2, CCLERICAL_TYPE_INT, &$<varref>$);
+	if (r) {
+		ERROR(&yylloc, "error declaring variable '%s' in lim: %s\n",
+		      $2, strerror(r));
+		free($2);
+		YYERROR;
+	}
+    }
+    TK_RDARROW prog TK_END
+    {
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_LIM);
+	$$->lim.seq_idx = $<varref>3;
+	$$->lim.seq = $5;
+	$$->lim.local = cclerical_parser_close_scope(p);
+	EXPR_NEW($$);
+    }
+  | TK_CASE cases TK_END
+    {
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_CASE);
+	$$->cases = $2;
+	EXPR_NEW($$);
+    }
+  | TK_IF expr TK_THEN prog else_branch TK_END
+    {
+	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_IF);
+	$$->branch.cond = $2;
+	$$->branch.if_true = $4;
+	$$->branch.if_false = $5;
+	EXPR_NEW($$);
+    }
+  | TK_VAR { cclerical_parser_open_scope(p, 0, 0); }
+    var_init_list TK_IN prog TK_END
+    {
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
+	$$->decl_asgn.inits = $3;
+	$$->decl_asgn.prog = $5;
+	EXPR_NEW($$);
+	free(cclerical_parser_close_scope(p).var_idcs.data);
+    }
+  | IDENT TK_ASGN expr
+    {
+	cclerical_id_t v;
+	if (!lookup_var(p, $1, &v, &yylloc, 1, "variable"))
+		YYERROR;
+	struct cclerical_decl *d = p->decls.data[v];
+	EXPR($3, 1U << d->value_type);
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_ASGN);
+	$$->asgn.var = v;
+	$$->asgn.expr = $3;
+	EXPR_NEW($$);
+    }
+  | TK_SKIP { EXPR_NEW($$ = cclerical_expr_create(CCLERICAL_EXPR_SKIP)); }
+  | TK_WHILE expr TK_DO prog TK_END
+    {
+	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_WHILE);
+	$$->loop.cond = $2;
+	$$->loop.body = $4;
 	EXPR_NEW($$);
     }
 
@@ -557,6 +562,11 @@ static int expr_super_types(const struct cclerical_parser *p,
 		expr_t = f->value_type;
 		break;
 	}
+	case CCLERICAL_EXPR_ASGN:
+	case CCLERICAL_EXPR_SKIP:
+	case CCLERICAL_EXPR_WHILE:
+		expr_t = CCLERICAL_TYPE_UNIT;
+		break;
 	}
 	*res = super_types(expr_t);
 	return 1;

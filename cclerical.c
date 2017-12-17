@@ -111,6 +111,15 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 		if (e->op.op != CCLERICAL_OP_NEG)
 			cclerical_expr_destroy(e->op.arg2);
 		break;
+	case CCLERICAL_EXPR_SKIP:
+		break;
+	case CCLERICAL_EXPR_ASGN:
+		cclerical_expr_destroy(e->asgn.expr);
+		break;
+	case CCLERICAL_EXPR_WHILE:
+		cclerical_expr_destroy(e->loop.cond);
+		cclerical_prog_destroy(e->loop.body);
+		break;
 	}
 	free(e);
 }
@@ -125,12 +134,6 @@ struct cclerical_stmt * cclerical_stmt_create(enum cclerical_stmt_type type)
 void cclerical_stmt_destroy(struct cclerical_stmt *s)
 {
 	switch (s->type) {
-	case CCLERICAL_STMT_SKIP: break;
-	case CCLERICAL_STMT_ASGN: cclerical_expr_destroy(s->asgn.expr); break;
-	case CCLERICAL_STMT_WHILE:
-		cclerical_expr_destroy(s->loop.cond);
-		cclerical_prog_destroy(s->loop.body);
-		break;
 	case CCLERICAL_STMT_EXPR: cclerical_expr_destroy(s->expr); break;
 	}
 	free(s);
