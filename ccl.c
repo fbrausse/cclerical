@@ -64,6 +64,16 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		        CCLERICAL_TYPE_STR[e->cnst.lower_type]);
 		break;
 	}
+	case CCLERICAL_EXPR_IF:
+		fprintf(stderr, "%*sif cond:\n", lvl, "");
+		pexpr(e->branch.cond, lvl+1);
+		fprintf(stderr, "%*sif true branch:\n", lvl, "");
+		pprog(e->branch.if_true, lvl+1);
+		if (e->branch.if_false) {
+			fprintf(stderr, "%*sif false branch:\n", lvl, "");
+			pprog(e->branch.if_false, lvl+1);
+		}
+		break;
 	case CCLERICAL_EXPR_VAR:
 		fprintf(stderr, "%*svar #%zu\n", lvl, "", e->var);
 		break;
@@ -110,16 +120,6 @@ static void pstmt(const struct cclerical_stmt *s, int lvl)
 		pexpr(s->loop.cond, lvl+1);
 		fprintf(stderr, "%*swhile body:\n", lvl, "");
 		pprog(s->loop.body, lvl+1);
-		break;
-	case CCLERICAL_STMT_IF:
-		fprintf(stderr, "%*sif cond:\n", lvl, "");
-		pexpr(s->branch.cond, lvl+1);
-		fprintf(stderr, "%*sif true branch:\n", lvl, "");
-		pprog(s->branch.if_true, lvl+1);
-		if (s->branch.if_false) {
-			fprintf(stderr, "%*sif false branch:\n", lvl, "");
-			pprog(s->branch.if_false, lvl+1);
-		}
 		break;
 	}
 }
@@ -228,6 +228,12 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 			visit_varrefs_prog(decls, e->cases.data[i+1], visit, cb_data);
 		}
 		break;
+	case CCLERICAL_EXPR_IF:
+		visit_varrefs_expr(decls, e->branch.cond, visit, cb_data);
+		visit_varrefs_prog(decls, e->branch.if_true, visit, cb_data);
+		if (e->branch.if_false)
+			visit_varrefs_prog(decls, e->branch.if_false, visit, cb_data);
+		break;
 	case CCLERICAL_EXPR_CNST:
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
@@ -269,12 +275,6 @@ static void visit_varrefs_prog(const vec_t *decls, const struct cclerical_prog *
 			break;
 		case CCLERICAL_STMT_EXPR:
 			visit_varrefs_expr(decls, s->expr, visit, cb_data);
-			break;
-		case CCLERICAL_STMT_IF:
-			visit_varrefs_expr(decls, s->branch.cond, visit, cb_data);
-			visit_varrefs_prog(decls, s->branch.if_true, visit, cb_data);
-			if (s->branch.if_false)
-				visit_varrefs_prog(decls, s->branch.if_false, visit, cb_data);
 			break;
 		case CCLERICAL_STMT_SKIP:
 			break;
@@ -402,6 +402,18 @@ static void export_irram_expr(const vec_t *decls,
 		cclprintf(lvl+1, "}\n");
 		cclprintf(lvl, "}()");
 		break;
+	case CCLERICAL_EXPR_IF:
+		cclprintf(0, "[&]{\n");
+		cclprintf(lvl+1, "if (");
+		export_irram_expr(decls, e->branch.cond, lvl);
+		cclprintf(0, ")\n");
+		export_irram_prog(decls, e->branch.if_true, lvl+2);
+		if (e->branch.if_false) {
+			cclprintf(lvl+1, "else\n");
+			export_irram_prog(decls, e->branch.if_false, lvl+2);
+		}
+		cclprintf(lvl, "}()");
+		break;
 	case CCLERICAL_EXPR_LIM: {
 		vec_t prev_scope_vars = CCLERICAL_VECTOR_INIT;
 		struct visit_prev_scope_args data = { &prev_scope_vars, e->lim.seq_idx };
@@ -442,16 +454,6 @@ static void export_irram_prog(const vec_t *decls,
 			export_irram_expr(decls, s->loop.cond, lvl);
 			cclprintf(0, ")\n");
 			export_irram_prog(decls, s->loop.body, lvl+1);
-			break;
-		case CCLERICAL_STMT_IF:
-			cclprintf(lvl, "if (");
-			export_irram_expr(decls, s->branch.cond, lvl);
-			cclprintf(0, ")\n");
-			export_irram_prog(decls, s->branch.if_true, lvl+1);
-			if (s->branch.if_false) {
-				cclprintf(lvl, "else\n");
-				export_irram_prog(decls, s->branch.if_false, lvl+1);
-			}
 			break;
 		case CCLERICAL_STMT_ASGN:
 			cclprintf(lvl, "%s%zu = ", CCL_PREFIX, s->asgn.var);

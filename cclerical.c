@@ -89,6 +89,12 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 	case CCLERICAL_EXPR_CASE:
 		cclerical_cases_fini(&e->cases);
 		break;
+	case CCLERICAL_EXPR_IF:
+		cclerical_expr_destroy(e->branch.cond);
+		cclerical_prog_destroy(e->branch.if_true);
+		if (e->branch.if_false)
+			cclerical_prog_destroy(e->branch.if_false);
+		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
 		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
 			struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
@@ -121,12 +127,6 @@ void cclerical_stmt_destroy(struct cclerical_stmt *s)
 	switch (s->type) {
 	case CCLERICAL_STMT_SKIP: break;
 	case CCLERICAL_STMT_ASGN: cclerical_expr_destroy(s->asgn.expr); break;
-	case CCLERICAL_STMT_IF:
-		cclerical_expr_destroy(s->branch.cond);
-		cclerical_prog_destroy(s->branch.if_true);
-		if (s->branch.if_false)
-			cclerical_prog_destroy(s->branch.if_false);
-		break;
 	case CCLERICAL_STMT_WHILE:
 		cclerical_expr_destroy(s->loop.cond);
 		cclerical_prog_destroy(s->loop.body);

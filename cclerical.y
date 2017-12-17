@@ -219,14 +219,6 @@ stmt
 	$$->asgn.expr = $3;
     }
   | TK_SKIP { $$ = cclerical_stmt_create(CCLERICAL_STMT_SKIP); }
-  | TK_IF expr TK_THEN prog else_branch TK_END
-    {
-	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
-	$$ = cclerical_stmt_create(CCLERICAL_STMT_IF);
-	$$->branch.cond = $2;
-	$$->branch.if_true = $4;
-	$$->branch.if_false = $5;
-    }
   | TK_WHILE expr TK_DO prog TK_END
     {
 	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
@@ -262,6 +254,15 @@ expr
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_CASE);
 	$$->cases = $2;
+	EXPR_NEW($$);
+    }
+  | TK_IF expr TK_THEN prog else_branch TK_END
+    {
+	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_IF);
+	$$->branch.cond = $2;
+	$$->branch.if_true = $4;
+	$$->branch.if_false = $5;
 	EXPR_NEW($$);
     }
   | TK_LIM IDENT
@@ -360,12 +361,14 @@ fun_call_params
 cases
   : expr TK_RDARROW prog
     {
+	EXPR($1, 1U << CCLERICAL_TYPE_BOOL);
 	cclerical_vector_init(&$$);
 	cclerical_vector_add(&$$, $1);
 	cclerical_vector_add(&$$, $3);
     }
   | cases TK_BARS expr TK_RDARROW prog
     {
+	EXPR($3, 1U << CCLERICAL_TYPE_BOOL);
 	$$ = $1;
 	cclerical_vector_add(&$$, $3);
 	cclerical_vector_add(&$$, $5);
@@ -521,6 +524,19 @@ static int expr_super_types(const struct cclerical_parser *p,
 			arg_t |= 1U << cclerical_prog_type(e->cases.data[i+1]);
 		if (!unique_t(arg_t, &expr_t)) {
 			ERROR(locp, "mixed-type case expression");
+			return 0;
+		}
+		break;
+	}
+	case CCLERICAL_EXPR_IF: {
+		cclerical_type_set_t arg_t = 0;
+		arg_t |= 1U << cclerical_prog_type(e->branch.if_true);
+		if (e->branch.if_false)
+			arg_t |= 1U << cclerical_prog_type(e->branch.if_false);
+		else
+			arg_t |= 1U << CCLERICAL_TYPE_UNIT;
+		if (!unique_t(arg_t, &expr_t)) {
+			ERROR(locp, "mixed-type if expression");
 			return 0;
 		}
 		break;

@@ -83,6 +83,7 @@ enum cclerical_expr_type {
 	CCLERICAL_EXPR_VAR,
 	CCLERICAL_EXPR_FUN_CALL,
 	CCLERICAL_EXPR_CASE,
+	CCLERICAL_EXPR_IF, /* syntactic sugar for CCLERICAL_EXPR_CASE */
 	CCLERICAL_EXPR_LIM,
 	CCLERICAL_EXPR_OP,
 };
@@ -102,6 +103,11 @@ struct cclerical_expr {
 			enum cclerical_op op;
 		} op;
 		struct cclerical_vector cases; /* of cclerical_case */
+		struct {
+			struct cclerical_expr *cond;
+			struct cclerical_prog *if_true;
+			struct cclerical_prog *if_false; /* may be NULL */
+		} branch;
 		struct {
 			cclerical_id_t seq_idx;
 			struct cclerical_prog *seq;
@@ -125,7 +131,6 @@ void                    cclerical_expr_destroy(struct cclerical_expr *e);
 enum cclerical_stmt_type {
 	CCLERICAL_STMT_SKIP,
 	CCLERICAL_STMT_WHILE,
-	CCLERICAL_STMT_IF,
 	CCLERICAL_STMT_ASGN,
 	CCLERICAL_STMT_EXPR,
 };
@@ -138,11 +143,6 @@ struct cclerical_stmt {
 			struct cclerical_expr *cond;
 			struct cclerical_prog *body;
 		} loop;
-		struct {
-			struct cclerical_expr *cond;
-			struct cclerical_prog *if_true;
-			struct cclerical_prog *if_false; /* may be NULL */
-		} branch;
 		struct {
 			cclerical_id_t var;
 			struct cclerical_expr *expr;
