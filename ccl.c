@@ -20,6 +20,7 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		[CCLERICAL_EXPR_CASE     ] = "case",
 		[CCLERICAL_EXPR_LIM      ] = "lim",
 		[CCLERICAL_EXPR_OP       ] = "op",
+		[CCLERICAL_EXPR_IF       ] = "if",
 	};
 	fprintf(stderr, "%*sexpr: %s of type %s\n", lvl, "", st[e->type],
 	        CCLERICAL_TYPE_STR[e->result_type]);
@@ -102,7 +103,7 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 static void pstmt(const struct cclerical_stmt *s, int lvl)
 {
 	static const char *const st[] = {
-		"skip", "while", "if", "asgn", "expr"
+		"skip", "while", "asgn", "expr",
 	};
 	fprintf(stderr, "%*sstmt: %s\n", lvl, "", st[s->type]);
 	switch (s->type) {
