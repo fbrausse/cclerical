@@ -52,13 +52,13 @@ static void cnst_num(struct cclerical_constant *c, const char *s, int base,
 %option stack
 
 IDENT		[a-z_][a-zA-Z0-9_]*'*
-INT_DEC		[+-]?(0|[1-9][0-9]*)
-INT_HEX		[+-]?0[xX][0-9a-fA-F]+
-INT_BIN		[+-]?0[bB][0-1]+
-INT_OCT		[+-]?0(0|[1-7][0-9]*)
+INT_DEC		(0|[1-9][0-9]*)
+INT_HEX		0[xX][0-9a-fA-F]+
+INT_BIN		0[bB][0-1]+
+INT_OCT		0(0|[1-7][0-9]*)
 
-FRAC_DEC	[+-]?((0|[1-9][0-9]*)\.|\.[0-9])[0-9]*([eE][+-]?[0-9]+)?
-FRAC_HEX	[+-]?0[xX]([0-9a-fA-F]+\.|\.[0-9a-fA-F])[0-9a-fA-F]*([eE][+-]?[0-9a-fA-F]+)?
+FRAC_DEC	((0|[1-9][0-9]*)\.|\.[0-9])[0-9]*([eE][+-]?[0-9]+)?
+FRAC_HEX	0[xX]([0-9a-fA-F]+\.|\.[0-9a-fA-F])[0-9a-fA-F]*([eE][+-]?[0-9a-fA-F]+)?
 
 WHITE		[ \t\f\v\r\n]
 
