@@ -33,6 +33,11 @@ void cclerical_vector_fini(const struct cclerical_vector *v)
 	free(v->data);
 }
 
+int cclerical_op_is_unary(enum cclerical_op op)
+{
+	return op == CCLERICAL_OP_NEG || op == CCLERICAL_OP_NOT;
+}
+
 struct cclerical_expr * cclerical_expr_create(enum cclerical_expr_type type)
 {
 	struct cclerical_expr *e = malloc(sizeof(struct cclerical_expr));
@@ -108,7 +113,7 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 		break;
 	case CCLERICAL_EXPR_OP:
 		cclerical_expr_destroy(e->op.arg1);
-		if (e->op.op != CCLERICAL_OP_NEG)
+		if (!cclerical_op_is_unary(e->op.op))
 			cclerical_expr_destroy(e->op.arg2);
 		break;
 	case CCLERICAL_EXPR_SKIP:

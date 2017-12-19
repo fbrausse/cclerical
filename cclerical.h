@@ -67,6 +67,9 @@ struct cclerical_prog;
 
 enum cclerical_op {
 	CCLERICAL_OP_NEG,
+	CCLERICAL_OP_NOT,
+	CCLERICAL_OP_AND,
+	CCLERICAL_OP_OR,
 	CCLERICAL_OP_ADD,
 	CCLERICAL_OP_SUB,
 	CCLERICAL_OP_MUL,
@@ -76,6 +79,8 @@ enum cclerical_op {
 	CCLERICAL_OP_GT,
 	CCLERICAL_OP_NE,
 };
+
+int cclerical_op_is_unary(enum cclerical_op);
 
 enum cclerical_expr_type {
 	CCLERICAL_EXPR_DECL_ASGN,

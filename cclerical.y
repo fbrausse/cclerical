@@ -108,6 +108,9 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 %precedence TK_THEN
 %precedence TK_ELSE
 
+%left '|'
+%left '&'
+%precedence '!'
 %nonassoc '<' '>' TK_NE
 %left  '+' '-'
 %left  '*' '/'
@@ -221,7 +224,10 @@ simple_expr
   | simple_expr '^' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_EXP, $1, $3)); }
   | simple_expr '<' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_LT, $1, $3)); }
   | simple_expr '>' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GT, $1, $3)); }
+  | simple_expr '|' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_OR, $1, $3)); }
+  | simple_expr '&' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_AND, $1, $3)); }
   | simple_expr TK_NE simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3)); }
+  | '!' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NOT, $2, NULL)); }
   | '-' simple_expr %prec UMINUS
     {
 	EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NEG, $2, NULL));
@@ -480,11 +486,6 @@ static int unique_t(cclerical_type_set_t s, enum cclerical_type *res)
 	}
 }
 
-static int is_binary_op(enum cclerical_op op)
-{
-	return op != CCLERICAL_OP_NEG;
-}
-
 static int is_arith_op(enum cclerical_op op)
 {
 	switch (op) {
@@ -498,6 +499,9 @@ static int is_arith_op(enum cclerical_op op)
 	case CCLERICAL_OP_LT:
 	case CCLERICAL_OP_GT:
 	case CCLERICAL_OP_NE:
+	case CCLERICAL_OP_NOT:
+	case CCLERICAL_OP_AND:
+	case CCLERICAL_OP_OR:
 		return 0;
 	}
 	return -1;
@@ -511,7 +515,7 @@ static int expr_type(const struct cclerical_parser *p,
 	switch (e->type) {
 	case CCLERICAL_EXPR_OP: {
 		cclerical_type_set_t arg_t = 1U << e->op.arg1->result_type;
-		if (is_binary_op(e->op.op))
+		if (!cclerical_op_is_unary(e->op.op))
 			arg_t |= 1U << e->op.arg2->result_type;
 		if (arg_t & (1U << CCLERICAL_TYPE_UNIT)) {
 			ERROR(locp, "operand of Unit type");

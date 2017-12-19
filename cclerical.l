@@ -103,7 +103,7 @@ true		{
 =>		{ return TK_RDARROW; }
 \|\|		{ return TK_BARS; }
 
-[+*/:;,^()=<>-]	{ return yytext[0]; }
+[+*/:;,^()=<>&|!-]	{ return yytext[0]; }
 
 Unit		{ return TK_UNIT; }
 Bool		{ return TK_BOOL; }

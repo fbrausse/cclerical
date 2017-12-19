@@ -43,6 +43,9 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 	case CCLERICAL_EXPR_OP: {
 		static const char *const ops[] = {
 			[CCLERICAL_OP_NEG] = "neg",
+			[CCLERICAL_OP_NOT] = "not",
+			[CCLERICAL_OP_AND] = "and",
+			[CCLERICAL_OP_OR]  = "or",
 			[CCLERICAL_OP_ADD] = "add",
 			[CCLERICAL_OP_SUB] = "sub",
 			[CCLERICAL_OP_MUL] = "mul",
@@ -152,8 +155,12 @@ static const char *const CCLERICAL_iRRAM_TYPES[] = {
 	[CCLERICAL_TYPE_REAL] = "iRRAM::REAL",
 };
 
-static const char *const CCLERICAL_CPP_OPS[] = {
-	[CCLERICAL_OP_NEG] = NULL,
+static const char *const CCLERICAL_CPP_UOPS[] = {
+	[CCLERICAL_OP_NEG] = "-",
+	[CCLERICAL_OP_NOT] = "!",
+};
+
+static const char *const CCLERICAL_CPP_BOPS[] = {
 	[CCLERICAL_OP_ADD] = "+",
 	[CCLERICAL_OP_SUB] = "-",
 	[CCLERICAL_OP_MUL] = "*",
@@ -263,7 +270,7 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 		break;
 	case CCLERICAL_EXPR_OP:
 		visit_varrefs_expr(decls, e->op.arg1, visit, cb_data);
-		if (e->op.op != CCLERICAL_OP_NEG)
+		if (!cclerical_op_is_unary(e->op.op))
 			visit_varrefs_expr(decls, e->op.arg2, visit, cb_data);
 		break;
 	case CCLERICAL_EXPR_VAR:
@@ -376,8 +383,8 @@ static void export_irram_expr(const vec_t *decls,
 		break;
 	}
 	case CCLERICAL_EXPR_OP:
-		if (e->op.op == CCLERICAL_OP_NEG) {
-			cclprintf(0, "-(");
+		if (cclerical_op_is_unary(e->op.op)) {
+			cclprintf(0, "%s(", CCLERICAL_CPP_UOPS[e->op.op]);
 			export_irram_expr(decls, e->op.arg1, lvl);
 			cclprintf(0, ")");
 			break;
@@ -390,7 +397,7 @@ static void export_irram_expr(const vec_t *decls,
 		} else {
 			cclprintf(0, "(");
 			export_irram_expr(decls, e->op.arg1, lvl);
-			cclprintf(0, ") %s (", CCLERICAL_CPP_OPS[e->op.op]);
+			cclprintf(0, ") %s (", CCLERICAL_CPP_BOPS[e->op.op]);
 			export_irram_expr(decls, e->op.arg2, lvl);
 			cclprintf(0, ")");
 		}
