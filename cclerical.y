@@ -115,6 +115,7 @@ static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
 %token <cnst> CONSTANT
 
 %precedence ';'
+%precedence TK_ASGN TK_RDARROW TK_IN TK_DO
 %precedence TK_THEN
 %precedence TK_ELSE
 
@@ -129,7 +130,7 @@ static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
 
 %type <prog> prog
 %type <stmt> stmt
-%type <expr> expr simple_expr
+%type <expr> expr pure_expr
 %type <type> type utype
 %type <cases> cases
 %type <varref> fun_decl_param fun_decl
@@ -227,19 +228,26 @@ stmt
 	$$->expr = $1;
     }
 
-simple_expr
-  : simple_expr '+' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_ADD, $1, $3)); }
-  | simple_expr '-' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_SUB, $1, $3)); }
-  | simple_expr '*' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_MUL, $1, $3)); }
-  | simple_expr '/' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_DIV, $1, $3)); }
-  | simple_expr '^' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_EXP, $1, $3)); }
-  | simple_expr '<' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_LT, $1, $3)); }
-  | simple_expr '>' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GT, $1, $3)); }
-  | simple_expr '|' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_OR, $1, $3)); }
-  | simple_expr '&' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_AND, $1, $3)); }
-  | simple_expr TK_NE simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3)); }
-  | '!' simple_expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NOT, $2, NULL)); }
-  | '-' simple_expr %prec UMINUS
+pure_expr
+  : { cclerical_parser_open_scope(p, 0, 1); }
+    expr
+    { free(cclerical_parser_close_scope(p).var_idcs.data); }
+    { $$ = $2; }
+
+/* TODO: check during runtime whether operands are pure */
+expr
+  : expr '+' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_ADD, $1, $3)); }
+  | expr '-' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_SUB, $1, $3)); }
+  | expr '*' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_MUL, $1, $3)); }
+  | expr '/' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_DIV, $1, $3)); }
+  | expr '^' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_EXP, $1, $3)); }
+  | expr '<' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_LT, $1, $3)); }
+  | expr '>' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GT, $1, $3)); }
+  | expr '|' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_OR, $1, $3)); }
+  | expr '&' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_AND, $1, $3)); }
+  | expr TK_NE expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3)); }
+  | '!' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NOT, $2, NULL)); }
+  | '-' expr %prec UMINUS
     {
 	EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NEG, $2, NULL));
     }
@@ -264,15 +272,6 @@ simple_expr
 	$$->cnst = $1;
 	EXPR_NEW($$);
     }
-  | '(' prog ')'
-    {
-	$$ = cclerical_expr_create(CCLERICAL_EXPR_SEQ);
-	$$->seq = $2;
-	EXPR_NEW($$);
-    }
-
-expr
-  : simple_expr
   | TK_LIM IDENT
     {
 	cclerical_parser_open_scope(p, 0, 1);
@@ -288,13 +287,19 @@ expr
 	$$->lim.local = cclerical_parser_close_scope(p);
 	EXPR_NEW($$);
     }
+  | '(' prog ')'
+    {
+	$$ = cclerical_expr_create(CCLERICAL_EXPR_SEQ);
+	$$->seq = $2;
+	EXPR_NEW($$);
+    }
   | TK_CASE cases TK_END
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_CASE);
 	$$->cases = $2;
 	EXPR_NEW($$);
     }
-  | TK_IF expr TK_THEN expr
+  | TK_IF pure_expr TK_THEN expr
     {
 	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_IF);
@@ -303,7 +308,7 @@ expr
 	$$->branch.if_false = NULL;
 	EXPR_NEW($$);
     }
-  | TK_IF expr TK_THEN expr TK_ELSE expr
+  | TK_IF pure_expr TK_THEN expr TK_ELSE expr
     {
 	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_IF);
@@ -334,7 +339,7 @@ expr
 	EXPR_NEW($$);
     }
   | TK_SKIP { EXPR_NEW($$ = cclerical_expr_create(CCLERICAL_EXPR_SKIP)); }
-  | TK_WHILE expr TK_DO expr
+  | TK_WHILE pure_expr TK_DO expr
     {
 	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_WHILE);
@@ -371,26 +376,26 @@ fun_call_param_spec
   | fun_call_params
 
 fun_call_params
-  : expr
+  : pure_expr
     {
 	cclerical_vector_init(&$$);
 	cclerical_vector_add(&$$, $1);
     }
-  | fun_call_params ',' expr
+  | fun_call_params ',' pure_expr
     {
 	$$ = $1;
 	cclerical_vector_add(&$$, $3);
     }
 
 cases
-  : expr TK_RDARROW expr
+  : pure_expr TK_RDARROW expr
     {
 	EXPR($1, 1U << CCLERICAL_TYPE_BOOL);
 	cclerical_vector_init(&$$);
 	cclerical_vector_add(&$$, $1);
 	cclerical_vector_add(&$$, $3);
     }
-  | cases TK_BARS expr TK_RDARROW expr
+  | cases TK_BARS pure_expr TK_RDARROW expr
     {
 	EXPR($3, 1U << CCLERICAL_TYPE_BOOL);
 	$$ = $1;
