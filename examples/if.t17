@@ -1,6 +1,6 @@
 
 function test(Int x):
-	if x > 0 then (x-1) else 1 end
+	if x > 0 then (x-1) else 1
 
 do
 	test(1)

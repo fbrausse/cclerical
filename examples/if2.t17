@@ -1,5 +1,5 @@
 function test(Int x):
-	if x>0 then skip end
+	if x>0 then skip
 
 do
 	test(0); 0

@@ -8,8 +8,6 @@ function abs(Real x):
 		||
 			x > eps => x
 		end
-		end
-	end
 
 do
 	abs(-0.0)

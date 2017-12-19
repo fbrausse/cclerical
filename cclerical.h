@@ -89,6 +89,7 @@ enum cclerical_expr_type {
 	CCLERICAL_EXPR_SKIP,
 	CCLERICAL_EXPR_WHILE,
 	CCLERICAL_EXPR_ASGN,
+	CCLERICAL_EXPR_SEQ,
 };
 
 struct cclerical_expr {
@@ -108,29 +109,30 @@ struct cclerical_expr {
 		struct cclerical_vector cases; /* of cclerical_case */
 		struct {
 			struct cclerical_expr *cond;
-			struct cclerical_prog *if_true;
-			struct cclerical_prog *if_false; /* may be NULL */
+			struct cclerical_expr *if_true;
+			struct cclerical_expr *if_false; /* may be NULL */
 		} branch;
 		struct {
 			cclerical_id_t seq_idx;
-			struct cclerical_prog *seq;
+			struct cclerical_expr *seq;
 			struct cclerical_scope local;
 		} lim;
 		struct cclerical_stmt_decl_asgn {
 			/* of type { (void *)(uintptr_t)cclerical_id_t;
 			 *           struct cclerical_expr * } */
 			struct cclerical_vector inits;
-			struct cclerical_prog *prog;
+			struct cclerical_expr *prog;
 		} decl_asgn;
 		struct {} skip; /* skip */
 		struct {
 			struct cclerical_expr *cond;
-			struct cclerical_prog *body;
+			struct cclerical_expr *body;
 		} loop;
 		struct {
 			cclerical_id_t var;
 			struct cclerical_expr *expr;
 		} asgn;
+		struct cclerical_prog *seq;
 	};
 };
 

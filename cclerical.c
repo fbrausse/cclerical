@@ -91,19 +91,19 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 		break;
 	case CCLERICAL_EXPR_IF:
 		cclerical_expr_destroy(e->branch.cond);
-		cclerical_prog_destroy(e->branch.if_true);
+		cclerical_expr_destroy(e->branch.if_true);
 		if (e->branch.if_false)
-			cclerical_prog_destroy(e->branch.if_false);
+			cclerical_expr_destroy(e->branch.if_false);
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
 		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
 			struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
 			cclerical_expr_destroy(f);
 		}
-		cclerical_prog_destroy(e->decl_asgn.prog);
+		cclerical_expr_destroy(e->decl_asgn.prog);
 		break;
 	case CCLERICAL_EXPR_LIM:
-		cclerical_prog_destroy(e->lim.seq);
+		cclerical_expr_destroy(e->lim.seq);
 		cclerical_scope_fini(&e->lim.local);
 		break;
 	case CCLERICAL_EXPR_OP:
@@ -118,7 +118,10 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 		break;
 	case CCLERICAL_EXPR_WHILE:
 		cclerical_expr_destroy(e->loop.cond);
-		cclerical_prog_destroy(e->loop.body);
+		cclerical_expr_destroy(e->loop.body);
+		break;
+	case CCLERICAL_EXPR_SEQ:
+		cclerical_prog_destroy(e->seq);
 		break;
 	}
 	free(e);
@@ -159,7 +162,7 @@ void cclerical_cases_fini(const struct cclerical_vector *c)
 {
 	for (size_t i=0; i<c->valid; i+=2) {
 		cclerical_expr_destroy(c->data[i]);
-		cclerical_prog_destroy(c->data[i+1]);
+		cclerical_expr_destroy(c->data[i+1]);
 	}
 	cclerical_vector_fini(c);
 }

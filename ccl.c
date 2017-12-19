@@ -24,6 +24,7 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		[CCLERICAL_EXPR_ASGN     ] = "asgn",
 		[CCLERICAL_EXPR_SKIP     ] = "skip",
 		[CCLERICAL_EXPR_WHILE    ] = "while",
+		[CCLERICAL_EXPR_SEQ      ] = "sequence",
 	};
 	fprintf(stderr, "%*sexpr: %s of type %s\n", lvl, "", st[e->type],
 	        CCLERICAL_TYPE_STR[e->result_type]);
@@ -36,7 +37,7 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 			pexpr(e->decl_asgn.inits.data[i+1], lvl+1);
 		}
 		fprintf(stderr, "%*sdecl-asgn computing\n", lvl, "");
-		pprog(e->decl_asgn.prog, lvl+1);
+		pexpr(e->decl_asgn.prog, lvl+1);
 		fprintf(stderr, "%*s decl-asgn done\n", lvl, "");
 		break;
 	case CCLERICAL_EXPR_OP: {
@@ -72,10 +73,10 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		fprintf(stderr, "%*sif cond:\n", lvl, "");
 		pexpr(e->branch.cond, lvl+1);
 		fprintf(stderr, "%*sif true branch:\n", lvl, "");
-		pprog(e->branch.if_true, lvl+1);
+		pexpr(e->branch.if_true, lvl+1);
 		if (e->branch.if_false) {
 			fprintf(stderr, "%*sif false branch:\n", lvl, "");
-			pprog(e->branch.if_false, lvl+1);
+			pexpr(e->branch.if_false, lvl+1);
 		}
 		break;
 	case CCLERICAL_EXPR_VAR:
@@ -91,13 +92,13 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 	case CCLERICAL_EXPR_LIM:
 		fprintf(stderr, "%*sseq_idx: #%zu in seq:\n", lvl, "",
 		        e->lim.seq_idx);
-		pprog(e->lim.seq, lvl+1);
+		pexpr(e->lim.seq, lvl+1);
 		break;
 	case CCLERICAL_EXPR_CASE:
 		for (size_t i=0; i<e->cases.valid; i+=2) {
 			fprintf(stderr, "%*scase %zu:\n", lvl, "", i/2);
 			pexpr(e->cases.data[i], lvl+1);
-			pprog(e->cases.data[i+1], lvl+1);
+			pexpr(e->cases.data[i+1], lvl+1);
 		}
 		break;
 	case CCLERICAL_EXPR_SKIP:
@@ -110,7 +111,10 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		fprintf(stderr, "%*swhile cond:\n", lvl, "");
 		pexpr(e->loop.cond, lvl+1);
 		fprintf(stderr, "%*swhile body:\n", lvl, "");
-		pprog(e->loop.body, lvl+1);
+		pexpr(e->loop.body, lvl+1);
+		break;
+	case CCLERICAL_EXPR_SEQ:
+		pprog(e->seq, lvl+1);
 		break;
 	}
 }
@@ -230,14 +234,14 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 	case CCLERICAL_EXPR_CASE:
 		for (size_t i=0; i<e->cases.valid; i+=2) {
 			visit_varrefs_expr(decls, e->cases.data[i], visit, cb_data);
-			visit_varrefs_prog(decls, e->cases.data[i+1], visit, cb_data);
+			visit_varrefs_expr(decls, e->cases.data[i+1], visit, cb_data);
 		}
 		break;
 	case CCLERICAL_EXPR_IF:
 		visit_varrefs_expr(decls, e->branch.cond, visit, cb_data);
-		visit_varrefs_prog(decls, e->branch.if_true, visit, cb_data);
+		visit_varrefs_expr(decls, e->branch.if_true, visit, cb_data);
 		if (e->branch.if_false)
-			visit_varrefs_prog(decls, e->branch.if_false, visit, cb_data);
+			visit_varrefs_expr(decls, e->branch.if_false, visit, cb_data);
 		break;
 	case CCLERICAL_EXPR_CNST:
 		break;
@@ -246,7 +250,7 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 			visit(decls, (uintptr_t)e->decl_asgn.inits.data[i], VAR_ACCESS_DEF, cb_data);
 			visit_varrefs_expr(decls, e->decl_asgn.inits.data[i+1], visit, cb_data);
 		}
-		visit_varrefs_prog(decls, e->decl_asgn.prog, visit, cb_data);
+		visit_varrefs_expr(decls, e->decl_asgn.prog, visit, cb_data);
 		break;
 	case CCLERICAL_EXPR_FUN_CALL:
 		visit(decls, e->fun_call.fun, VAR_ACCESS_CALL, cb_data);
@@ -255,7 +259,7 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 		break;
 	case CCLERICAL_EXPR_LIM:
 		visit(decls, e->lim.seq_idx, VAR_ACCESS_DEF, cb_data);
-		visit_varrefs_prog(decls, e->lim.seq, visit, cb_data);
+		visit_varrefs_expr(decls, e->lim.seq, visit, cb_data);
 		break;
 	case CCLERICAL_EXPR_OP:
 		visit_varrefs_expr(decls, e->op.arg1, visit, cb_data);
@@ -273,7 +277,10 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 		break;
 	case CCLERICAL_EXPR_WHILE:
 		visit_varrefs_expr(decls, e->loop.cond, visit, cb_data);
-		visit_varrefs_prog(decls, e->loop.body, visit, cb_data);
+		visit_varrefs_expr(decls, e->loop.body, visit, cb_data);
+		break;
+	case CCLERICAL_EXPR_SEQ:
+		visit_varrefs_prog(decls, e->seq, visit, cb_data);
 		break;
 	}
 }
@@ -340,9 +347,11 @@ static void export_irram_expr(const vec_t *decls,
 			if (i+2 < e->decl_asgn.inits.valid)
 				cclprintf(0, ", ");
 		}
-		cclprintf(0, ")\n");
-		export_irram_prog(decls, e->decl_asgn.prog, lvl+1);
-		cclprintf(lvl, "(");
+		cclprintf(0, "){\n");
+		cclprintf(lvl+1, "%s", e->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+		export_irram_expr(decls, e->decl_asgn.prog, lvl+1);
+		cclprintf(0, ";\n");
+		cclprintf(lvl, "}(");
 		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
 			const struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
 			export_irram_expr(decls, f, lvl+1);
@@ -400,9 +409,13 @@ static void export_irram_expr(const vec_t *decls,
 		cclprintf(0, ")) {\n");
 		cclprintf(lvl+1, "default: abort();\n");
 		for (size_t i=0; i<e->cases.valid; i+=2) {
-			const struct cclerical_prog *p = e->cases.data[i+1];
+			const struct cclerical_expr *f = e->cases.data[i+1];
 			cclprintf(lvl+1, "case %zu:\n", i/2+1);
-			export_irram_prog(decls, p, lvl+2);
+			cclprintf(lvl+2, "%s", f->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+			export_irram_expr(decls, f, lvl+2);
+			cclprintf(0, ";\n");
+			if (f->result_type != CCLERICAL_TYPE_UNIT)
+				cclprintf(lvl+2, "break;");
 		}
 		cclprintf(lvl+1, "}\n");
 		cclprintf(lvl, "}()");
@@ -411,18 +424,24 @@ static void export_irram_expr(const vec_t *decls,
 		cclprintf(0, "[&]{\n");
 		cclprintf(lvl+1, "if (");
 		export_irram_expr(decls, e->branch.cond, lvl);
-		cclprintf(0, ")\n");
-		export_irram_prog(decls, e->branch.if_true, lvl+2);
+		cclprintf(0, ") {\n");
+		cclprintf(lvl+2, "%s", e->branch.if_true->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+		export_irram_expr(decls, e->branch.if_true, lvl+2);
+		cclprintf(0, ";\n");
+		cclprintf(lvl+1, "}\n");
 		if (e->branch.if_false) {
-			cclprintf(lvl+1, "else\n");
-			export_irram_prog(decls, e->branch.if_false, lvl+2);
+			cclprintf(lvl+1, "else {\n");
+			cclprintf(lvl+2, "%s", e->branch.if_false->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+			export_irram_expr(decls, e->branch.if_false, lvl+2);
+			cclprintf(0, ";\n");
+			cclprintf(lvl+1, "}\n");
 		}
 		cclprintf(lvl, "}()");
 		break;
 	case CCLERICAL_EXPR_LIM: {
 		vec_t prev_scope_vars = CCLERICAL_VECTOR_INIT;
 		struct visit_prev_scope_args data = { &prev_scope_vars, e->lim.seq_idx };
-		visit_varrefs_prog(decls, e->lim.seq, visit_prev_scope, &data);
+		visit_varrefs_expr(decls, e->lim.seq, visit_prev_scope, &data);
 
 		cclprintf(0, "iRRAM::limit([](int p");
 		for (size_t i=0; i<prev_scope_vars.valid; i++) {
@@ -433,7 +452,9 @@ static void export_irram_expr(const vec_t *decls,
 		cclprintf(lvl+1, "");
 		export_irram_var_decl(decls, e->lim.seq_idx, 0);
 		cclprintf(0, " = -p;\n");
-		export_irram_prog(decls, e->lim.seq, lvl+2);
+		cclprintf(lvl+1, "%s", e->lim.seq->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+		export_irram_expr(decls, e->lim.seq, lvl+2);
+		cclprintf(0, ";\n");
 		cclprintf(lvl, "}");
 		for (size_t i=0; i<prev_scope_vars.valid; i++) {
 			cclerical_id_t v = (uintptr_t)prev_scope_vars.data[i];
@@ -448,8 +469,11 @@ static void export_irram_expr(const vec_t *decls,
 	case CCLERICAL_EXPR_WHILE:
 		cclprintf(lvl, "while (");
 		export_irram_expr(decls, e->loop.cond, lvl);
-		cclprintf(0, ")\n");
-		export_irram_prog(decls, e->loop.body, lvl+1);
+		cclprintf(0, ") {\n");
+		cclprintf(lvl+1, "%s", e->loop.body->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+		export_irram_expr(decls, e->loop.body, lvl+1);
+		cclprintf(0, ";\n");
+		cclprintf(lvl, "}\n");
 		break;
 	case CCLERICAL_EXPR_ASGN:
 		cclprintf(lvl, "%s%zu = ", CCL_PREFIX, e->asgn.var);
@@ -458,6 +482,11 @@ static void export_irram_expr(const vec_t *decls,
 		break;
 	case CCLERICAL_EXPR_SKIP:
 		cclprintf(lvl, ";\n");
+		break;
+	case CCLERICAL_EXPR_SEQ:
+		cclprintf(lvl, "[&]");
+		export_irram_prog(decls, e->seq, lvl+1);
+		cclprintf(0, "()");
 		break;
 	}
 }

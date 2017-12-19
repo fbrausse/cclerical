@@ -6,19 +6,15 @@ function sqrt(Real x):
 	lim n =>
 		var y := 1.0
 		and eps := 2.0^real(-n) in
-			while
+			(while
 				var d := abs(y-x/y) in
 					case
 					d < eps => false  ||
 					d > eps/2.0 => true
 					end
-				end
 			do
-				y := (y+x/y)/2.0
-			end;
-			y
-		end
-	end
+				y := (y+x/y)/2.0;
+			y)
 
 do
 	sqrt(2.0)
