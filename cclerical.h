@@ -185,6 +185,11 @@ struct cclerical_parser_scope {
 	unsigned all_read_only : 1;  /* reset to 0 on close_scope() */
 };
 
+struct cclerical_source_loc {
+	int first_line, first_column;
+	int last_line, last_column;
+};
+
 struct cclerical_decl {
 	enum {
 		CCLERICAL_DECL_VAR,
@@ -192,6 +197,7 @@ struct cclerical_decl {
 	} type;
 	enum cclerical_type value_type;
 	char *id;
+	struct cclerical_source_loc source_loc;
 	union {
 		struct {} var;
 		struct {
@@ -204,6 +210,14 @@ struct cclerical_decl {
 	};
 };
 
+#define CCLERICAL_DECL_INIT_VAR(value_type,id,loc) \
+	{ CCLERICAL_DECL_VAR, value_type, id, loc, .var = {}, }
+
+#define CCLERICAL_DECL_INIT_FUN(value_type,id,loc,args,body) \
+	{ CCLERICAL_DECL_FUN, value_type, id, loc, .fun = { args, body }, }
+
+void cclerical_decl_fini(const struct cclerical_decl *d);
+
 struct cclerical_parser {
 	struct cclerical_parser_scope scope;
 	struct cclerical_prog *prog;
@@ -215,13 +229,10 @@ void cclerical_parser_init(struct cclerical_parser *p);
 int  cclerical_parser_var_lookup(struct cclerical_parser *p, const char *id,
                                  cclerical_id_t *v, int rw);
 
-int  cclerical_parser_new_var(struct cclerical_parser *p, char *id,
-                              enum cclerical_type type, cclerical_id_t *v);
 
-int cclerical_parser_new_fun(struct cclerical_parser *p,
-                             char *id, enum cclerical_type type,
-                             struct cclerical_vector arguments,
-                             struct cclerical_prog *body, cclerical_id_t *v);
+int cclerical_parser_new_decl(struct cclerical_parser *p,
+                              const struct cclerical_decl *decl,
+                              cclerical_id_t *v);
 
 void cclerical_parser_open_scope(struct cclerical_parser *p, int ro,
                                  int parents_ro);

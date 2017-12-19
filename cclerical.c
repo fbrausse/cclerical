@@ -196,7 +196,8 @@ static int lookup(const struct cclerical_parser *p,
 			size_t idx = (uintptr_t)vi->data[i];
 			const struct cclerical_decl *v = p->decls.data[idx];
 			if (!strcmp(v->id, id)) {
-				*ridx = idx;
+				if (ridx)
+					*ridx = idx;
 				return 1;
 			}
 		}
@@ -211,48 +212,18 @@ int cclerical_parser_var_lookup(struct cclerical_parser *p, const char *id,
 	return lookup(p, &p->scope, id, v, rw);
 }
 
-static int cclerical_parser_new_decl(struct cclerical_parser *p,
-                                     const struct cclerical_decl *decl,
-                                     cclerical_id_t *v)
+int cclerical_parser_new_decl(struct cclerical_parser *p,
+                              const struct cclerical_decl *decl,
+                              cclerical_id_t *v)
 {
-	cclerical_id_t exists;
-	if (cclerical_parser_var_lookup(p, decl->id, &exists, 0))
-		return EEXIST;
+	if (cclerical_parser_var_lookup(p, decl->id, v, 0))
+		return 0;
 	size_t idx = p->decls.valid;
 	cclerical_vector_add(&p->decls, memdup(decl, sizeof(*decl)));
 	cclerical_vector_add(&p->scope.scope.var_idcs, (void *)(uintptr_t)idx);
 	if (v)
 		*v = idx;
-	return 0;
-}
-
-int cclerical_parser_new_var(struct cclerical_parser *p, char *id,
-                             enum cclerical_type type, cclerical_id_t *v)
-{
-	struct cclerical_decl d = {
-		.type = CCLERICAL_DECL_VAR,
-		.value_type = type,
-		.id = id,
-		.var = {},
-	};
-	return cclerical_parser_new_decl(p, &d, v);
-}
-
-int cclerical_parser_new_fun(struct cclerical_parser *p,
-                             char *id, enum cclerical_type type,
-                             struct cclerical_vector arguments,
-                             struct cclerical_prog *body, cclerical_id_t *v)
-{
-	struct cclerical_decl d = {
-		.type = CCLERICAL_DECL_FUN,
-		.value_type = type,
-		.id = id,
-		.fun = {
-			.arguments = arguments,
-			.body = body,
-		},
-	};
-	return cclerical_parser_new_decl(p, &d, v);
+	return 1;
 }
 
 void cclerical_parser_open_scope(struct cclerical_parser *p, int ro,
@@ -277,7 +248,7 @@ struct cclerical_scope cclerical_parser_close_scope(struct cclerical_parser *p)
 	return scope;
 }
 
-void cclerical_decl_destroy(struct cclerical_decl *d)
+void cclerical_decl_fini(const struct cclerical_decl *d)
 {
 	free(d->id);
 	switch (d->type) {
@@ -289,6 +260,11 @@ void cclerical_decl_destroy(struct cclerical_decl *d)
 			cclerical_prog_destroy(d->fun.body);
 		break;
 	}
+}
+
+void cclerical_decl_destroy(struct cclerical_decl *d)
+{
+	cclerical_decl_fini(d);
 	free(d);
 }
 

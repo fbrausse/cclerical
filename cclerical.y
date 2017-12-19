@@ -4,14 +4,17 @@
 #include <stdarg.h>	/* va_*() */
 #include <stdio.h>	/* FILE */
 
-#include "cclerical.h"
-#include "cclerical.tab.h"
-#include "cclerical.lex.h"
+typedef struct cclerical_source_loc YYLTYPE;
+#define YYLTYPE		YYLTYPE
 
 #define YYMAXDEPTH LONG_MAX
 #define YYLTYPE_IS_TRIVIAL 1
 
-static void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
+#include "cclerical.h"
+#include "cclerical.tab.h"
+#include "cclerical.lex.h"
+
+static void cclerical_error0(const YYLTYPE *locp, const char *file, int lineno,
                              const char *fmt, ...);
 
 #define ERROR(locp,...) cclerical_error0(locp, __FILE__, __LINE__, __VA_ARGS__)
@@ -38,6 +41,9 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
                                         YYLTYPE *locp, char *id,
                                         struct cclerical_vector params);
 
+static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
+                    cclerical_id_t *v, const char *decl_desc);
+
 #define EXPR_NEW(e)	do { if (!expr_new(p, e, &yylloc)) YYERROR; } while (0)
 #define EXPR(e,forced)	\
 	do { if (!expr(p, e, forced, &yylloc)) YYERROR; } while (0)
@@ -46,6 +52,10 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 
 %parse-param { struct cclerical_parser *p } { void *yyscanner }
 %lex-param { void *yyscanner }
+%initial-action {
+	yyloc.first_line = yyloc.last_line = 1;
+	yyloc.first_column = yyloc.last_line = 1;
+}
 
 %union {
 	struct cclerical_expr *expr;
@@ -146,11 +156,16 @@ fun_decl
     '(' fun_decl_params_spec ')' ':' prog
     {
 	free(cclerical_parser_close_scope(p).var_idcs.data);
-	cclerical_parser_new_fun(p, $2, cclerical_prog_type($8), $5, $8, &$$);
+	enum cclerical_type t = cclerical_prog_type($8);
+	struct cclerical_decl d = CCLERICAL_DECL_INIT_FUN(t,$2,yyloc,$5,$8);
+	if (!decl_new(p, &d, &$$, "function"))
+		YYERROR;
     }
   | TK_EXTERNAL IDENT '(' extfun_decl_params_spec ')' TK_RSARROW utype
     {
-	cclerical_parser_new_fun(p, $2, $7, $4, NULL, &$$);
+	struct cclerical_decl d = CCLERICAL_DECL_INIT_FUN($7,$2,yylloc,$4,NULL);
+	if (!decl_new(p, &d, &$$, "external function"))
+		YYERROR;
     }
 
 extfun_decl_params_spec
@@ -188,13 +203,9 @@ fun_decl_params
 fun_decl_param
   : type IDENT
     {
-	int r = cclerical_parser_new_var(p, $2, $1, &$$);
-	if (r) {
-		ERROR(&yylloc, "error declaring function parameter '%s': %s\n",
-		      $2, strerror(r));
-		free($2);
+	struct cclerical_decl d = CCLERICAL_DECL_INIT_VAR($1, $2, yylloc);
+	if (!decl_new(p, &d, &$$, "function parameter"))
 		YYERROR;
-	}
     }
 
 prog
@@ -265,13 +276,9 @@ expr
   | TK_LIM IDENT
     {
 	cclerical_parser_open_scope(p, 0, 1);
-	int r = cclerical_parser_new_var(p, $2, CCLERICAL_TYPE_INT, &$<varref>$);
-	if (r) {
-		ERROR(&yylloc, "error declaring variable '%s' in lim: %s\n",
-		      $2, strerror(r));
-		free($2);
+	struct cclerical_decl d = CCLERICAL_DECL_INIT_VAR(CCLERICAL_TYPE_INT,$2,yylloc);
+	if (!decl_new(p, &d, &$<varref>$, "lim sequence variable"))
 		YYERROR;
-	}
     }
     TK_RDARROW expr
     {
@@ -353,13 +360,9 @@ var_init_list
 var_init
   : IDENT TK_ASGN expr
     {
-	int r = cclerical_parser_new_var(p, $1, $3->result_type, &$$.varref);
-	if (r) {
-		ERROR(&yylloc, "error defining variable '%s': %s\n",
-		      $1, strerror(r));
-		free($1);
+	struct cclerical_decl d = CCLERICAL_DECL_INIT_VAR($3->result_type,$1,yylloc);
+	if (!decl_new(p, &d, &$$.varref, "variable"))
 		YYERROR;
-	}
 	$$.expr = $3;
     }
 
@@ -414,7 +417,19 @@ static void print_range(FILE *f, int a, int b)
 		fprintf(f, "%d-%d", a, b);
 }
 
-static void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
+static void print_loc(FILE *out, const YYLTYPE *locp)
+{
+	if (locp->first_line == locp->last_line) {
+		fprintf(out, "%d.", locp->first_line);
+		print_range(out, locp->first_column, locp->last_column);
+	} else {
+		fprintf(out, "%d.%d-%d.%d",
+		        locp->first_line, locp->first_column,
+		        locp->last_line, locp->last_column);
+	}
+}
+
+static void cclerical_error0(const YYLTYPE *locp, const char *file, int lineno,
                              const char *fmt, ...)
 {
 #ifndef NDEBUG
@@ -424,9 +439,7 @@ static void cclerical_error0(YYLTYPE *locp, const char *file, int lineno,
 	(void)lineno;
 #endif
 	fprintf(stderr, "error at ");
-	print_range(stderr, locp->first_line, locp->last_line);
-	fprintf(stderr, ".");
-	print_range(stderr, locp->first_column, locp->last_column);
+	print_loc(stderr, locp);
 	fprintf(stderr, ": ");
 	va_list ap;
 	va_start(ap, fmt);
@@ -675,4 +688,23 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 	e->fun_call.fun = v;
 	e->fun_call.params = params;
 	return e;
+}
+
+static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
+                    cclerical_id_t *v, const char *decl_desc)
+{
+	static const char *type_str[] = {
+		[CCLERICAL_DECL_VAR] = "variable",
+		[CCLERICAL_DECL_FUN] = "function",
+	};
+	if (!cclerical_parser_new_decl(p, d, v)) {
+		struct cclerical_decl *e = p->decls.data[*v];
+		ERROR(&d->source_loc, "error declaring %s '%s'", decl_desc, d->id);
+		ERROR(&e->source_loc,
+		      "first declaration of a %s of this name was here",
+		      type_str[e->type]);
+		cclerical_decl_fini(d);
+		return 0;
+	}
+	return 1;
 }
