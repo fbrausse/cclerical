@@ -28,6 +28,11 @@ static inline void cclerical_vector_init(struct cclerical_vector *v)
 	memset(v, 0, sizeof(*v));
 }
 
+static inline void * cclerical_vector_last(const struct cclerical_vector *v)
+{
+	return v->data[v->valid-1];
+}
+
 void cclerical_vector_add(struct cclerical_vector *v, void *it);
 void cclerical_vector_fini(const struct cclerical_vector *v);
 
@@ -162,7 +167,7 @@ struct cclerical_stmt * cclerical_stmt_create(enum cclerical_stmt_type type);
 void                    cclerical_stmt_destroy(struct cclerical_stmt *s);
 
 struct cclerical_prog {
-	struct cclerical_vector stmts; /* of struct cclerical_stmt * */
+	struct cclerical_vector stmts; /* of struct cclerical_stmt *, size >= 1 */
 };
 
 struct cclerical_prog * cclerical_prog_create(void);
@@ -179,10 +184,9 @@ void cclerical_cases_fini(const struct cclerical_vector *c);
 /* -------------------------------------------------------------------------- */
 
 struct cclerical_parser_scope {
-	struct cclerical_parser_scope *parent;
 	struct cclerical_scope scope;
-	unsigned this_read_only : 1; /* never reset */
-	unsigned all_read_only : 1;  /* reset to 0 on close_scope() */
+	unsigned this_read_only : 1;
+	unsigned prev_read_only : 1;
 };
 
 struct cclerical_source_loc {
@@ -219,7 +223,7 @@ struct cclerical_decl {
 void cclerical_decl_fini(const struct cclerical_decl *d);
 
 struct cclerical_parser {
-	struct cclerical_parser_scope scope;
+	struct cclerical_vector scopes; /* of struct cclerical_parser_scope */
 	struct cclerical_prog *prog;
 	struct cclerical_vector decls; /* of struct cclerical_decl * */
 };

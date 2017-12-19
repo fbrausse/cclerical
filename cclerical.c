@@ -23,11 +23,6 @@ void cclerical_vector_add(struct cclerical_vector *v, void *it)
 	v->data[v->valid++] = it;
 }
 
-static void * cclerical_vector_last(const struct cclerical_vector *v)
-{
-	return v->valid ? v->data[v->valid-1] : NULL;
-}
-
 void cclerical_vector_fini(const struct cclerical_vector *v)
 {
 	free(v->data);
@@ -59,7 +54,7 @@ struct cclerical_expr * cclerical_expr_create_op(enum cclerical_op op,
 enum cclerical_type cclerical_prog_type(const struct cclerical_prog *p)
 {
 	struct cclerical_stmt *last = cclerical_vector_last(&p->stmts);
-	if (!last || last->type != CCLERICAL_STMT_EXPR)
+	if (last->type != CCLERICAL_STMT_EXPR)
 		return CCLERICAL_TYPE_UNIT;
 	return last->expr->result_type;
 }
@@ -182,14 +177,14 @@ void cclerical_scope_fini(const struct cclerical_scope *s)
 void cclerical_parser_init(struct cclerical_parser *p)
 {
 	memset(p, 0, sizeof(*p));
+	cclerical_parser_open_scope(p, 0, 0);
 }
 
 static int lookup(const struct cclerical_parser *p,
-                  const struct cclerical_parser_scope *s, const char *id,
+                  size_t scope_idx, const char *id,
                   cclerical_id_t *ridx, int rw)
 {
-	if (!s)
-		return 0;
+	const struct cclerical_parser_scope *s = p->scopes.data[scope_idx];
 	if (!rw || !s->this_read_only) {
 		const struct cclerical_vector *vi = &s->scope.var_idcs;
 		for (size_t i=0; i<vi->valid; i++) {
@@ -202,14 +197,14 @@ static int lookup(const struct cclerical_parser *p,
 			}
 		}
 	}
-	return rw && s->parent->all_read_only
-	       ? 0 : lookup(p, s->parent, id, ridx, rw);
+	return (!scope_idx || (rw && s->prev_read_only))
+	       ? 0 : lookup(p, scope_idx-1, id, ridx, rw);
 }
 
 int cclerical_parser_var_lookup(struct cclerical_parser *p, const char *id,
                                 cclerical_id_t *v, int rw)
 {
-	return lookup(p, &p->scope, id, v, rw);
+	return p->scopes.valid && lookup(p, p->scopes.valid-1, id, v, rw);
 }
 
 int cclerical_parser_new_decl(struct cclerical_parser *p,
@@ -220,7 +215,8 @@ int cclerical_parser_new_decl(struct cclerical_parser *p,
 		return 0;
 	size_t idx = p->decls.valid;
 	cclerical_vector_add(&p->decls, memdup(decl, sizeof(*decl)));
-	cclerical_vector_add(&p->scope.scope.var_idcs, (void *)(uintptr_t)idx);
+	struct cclerical_parser_scope *s = cclerical_vector_last(&p->scopes);
+	cclerical_vector_add(&s->scope.var_idcs, (void *)(uintptr_t)idx);
 	if (v)
 		*v = idx;
 	return 1;
@@ -229,21 +225,18 @@ int cclerical_parser_new_decl(struct cclerical_parser *p,
 void cclerical_parser_open_scope(struct cclerical_parser *p, int ro,
                                  int parents_ro)
 {
-	struct cclerical_parser_scope *s;
-	s = malloc(sizeof(struct cclerical_parser_scope));
-	*s = p->scope;
-	s->all_read_only |= parents_ro;
-	p->scope.parent = s;
-	memset(&p->scope.scope, 0, sizeof(p->scope.scope));
-	p->scope.this_read_only = ro;
+	struct cclerical_parser_scope ns = {
+		.scope = { .var_idcs = CCLERICAL_VECTOR_INIT },
+		.this_read_only = ro,
+		.prev_read_only = parents_ro,
+	};
+	cclerical_vector_add(&p->scopes, memdup(&ns, sizeof(ns)));
 }
 
 struct cclerical_scope cclerical_parser_close_scope(struct cclerical_parser *p)
 {
-	struct cclerical_scope scope = p->scope.scope;
-	struct cclerical_parser_scope *s = p->scope.parent;
-	s->all_read_only = 0;
-	p->scope = *s;
+	struct cclerical_parser_scope *s = p->scopes.data[--p->scopes.valid];
+	struct cclerical_scope scope = s->scope;
 	free(s);
 	return scope;
 }
@@ -270,11 +263,10 @@ void cclerical_decl_destroy(struct cclerical_decl *d)
 
 void cclerical_parser_fini(struct cclerical_parser *p)
 {
-	while (p->scope.parent) {
+	while (p->scopes.valid) {
 		struct cclerical_scope sc = cclerical_parser_close_scope(p);
 		cclerical_scope_fini(&sc);
 	}
-	cclerical_scope_fini(&p->scope.scope);
 	for (size_t i=0; i<p->decls.valid; i++) {
 		struct cclerical_decl *d = p->decls.data[i];
 		cclerical_decl_destroy(d);
