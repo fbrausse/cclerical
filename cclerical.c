@@ -53,10 +53,8 @@ struct cclerical_expr * cclerical_expr_create_op(enum cclerical_op op,
 
 enum cclerical_type cclerical_prog_type(const struct cclerical_prog *p)
 {
-	struct cclerical_stmt *last = cclerical_vector_last(&p->stmts);
-	if (last->type != CCLERICAL_STMT_EXPR)
-		return CCLERICAL_TYPE_UNIT;
-	return last->expr->result_type;
+	struct cclerical_expr *last = cclerical_vector_last(&p->exprs);
+	return last->result_type;
 }
 
 void cclerical_constant_fini(struct cclerical_constant *c)
@@ -127,21 +125,6 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 	free(e);
 }
 
-struct cclerical_stmt * cclerical_stmt_create(enum cclerical_stmt_type type)
-{
-	struct cclerical_stmt *e = malloc(sizeof(struct cclerical_stmt));
-	e->type = type;
-	return e;
-}
-
-void cclerical_stmt_destroy(struct cclerical_stmt *s)
-{
-	switch (s->type) {
-	case CCLERICAL_STMT_EXPR: cclerical_expr_destroy(s->expr); break;
-	}
-	free(s);
-}
-
 struct cclerical_prog * cclerical_prog_create(void)
 {
 	struct cclerical_prog *p = calloc(1, sizeof(struct cclerical_prog));
@@ -150,11 +133,11 @@ struct cclerical_prog * cclerical_prog_create(void)
 
 void cclerical_prog_destroy(struct cclerical_prog *p)
 {
-	for (size_t i=0; i<p->stmts.valid; i++) {
-		struct cclerical_stmt *s = p->stmts.data[i];
-		cclerical_stmt_destroy(s);
+	for (size_t i=0; i<p->exprs.valid; i++) {
+		struct cclerical_expr *e = p->exprs.data[i];
+		cclerical_expr_destroy(e);
 	}
-	cclerical_vector_fini(&p->stmts);
+	cclerical_vector_fini(&p->exprs);
 	free(p);
 }
 

@@ -62,7 +62,6 @@ static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
 
 %union {
 	struct cclerical_expr *expr;
-	struct cclerical_stmt *stmt;
 	struct cclerical_prog *prog;
 	enum cclerical_type type;
 	cclerical_id_t varref;
@@ -132,7 +131,6 @@ static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
 %right '^'
 
 %type <prog> prog
-%type <stmt> stmt
 %type <expr> expr pure_expr
 %type <type> type utype
 %type <cases> cases
@@ -213,22 +211,15 @@ fun_decl_param
     }
 
 prog
-  : prog ';' stmt
+  : prog ';' expr
     {
 	$$ = $1;
-	cclerical_vector_add(&$$->stmts, $3);
+	cclerical_vector_add(&$$->exprs, $3);
     }
-  | stmt
+  | expr
     {
 	$$ = cclerical_prog_create();
-	cclerical_vector_add(&$$->stmts, $1);
-    }
-
-stmt
-  : expr
-    {
-	$$ = cclerical_stmt_create(CCLERICAL_STMT_EXPR);
-	$$->expr = $1;
+	cclerical_vector_add(&$$->exprs, $1);
     }
 
 pure_expr
@@ -717,9 +708,8 @@ static int expr_type(const struct cclerical_parser *p,
 		min_scope_asgn = e->loop.body->min_scope_asgn;
 		break;
 	case CCLERICAL_EXPR_SEQ:
-		for (size_t i=0; i+1<e->seq->stmts.valid; i++) {
-			const struct cclerical_stmt *s = e->seq->stmts.data[i];
-			const struct cclerical_expr *f = s->expr;
+		for (size_t i=0; i+1<e->seq->exprs.valid; i++) {
+			const struct cclerical_expr *f = e->seq->exprs.data[i];
 			min_scope_asgn = MIN(min_scope_asgn, f->min_scope_asgn);
 			if (f->result_type != CCLERICAL_TYPE_UNIT)
 				WARN(&f->source_loc, "initial expr in sequence "

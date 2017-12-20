@@ -122,24 +122,11 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 	}
 }
 
-static void pstmt(const struct cclerical_stmt *s, int lvl)
-{
-	static const char *const st[] = {
-		"expr"
-	};
-	fprintf(stderr, "%*sstmt: %s\n", lvl, "", st[s->type]);
-	switch (s->type) {
-	case CCLERICAL_STMT_EXPR:
-		pexpr(s->expr, lvl+1);
-		break;
-	}
-}
-
 static void pprog(const struct cclerical_prog *p, int lvl)
 {
 	fprintf(stderr, "%*sprogram:\n", lvl, "");
-	for (size_t i=0; i<p->stmts.valid; i++)
-		pstmt(p->stmts.data[i], lvl+1);
+	for (size_t i=0; i<p->exprs.valid; i++)
+		pexpr(p->exprs.data[i], lvl+1);
 }
 
 #define IRRAM_HEADER "\n\
@@ -295,13 +282,9 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 static void visit_varrefs_prog(const vec_t *decls, const struct cclerical_prog *p,
                                visit_varrefs_f *visit, void *cb_data)
 {
-	for (size_t i=0; i<p->stmts.valid; i++) {
-		const struct cclerical_stmt *s = p->stmts.data[i];
-		switch (s->type) {
-		case CCLERICAL_STMT_EXPR:
-			visit_varrefs_expr(decls, s->expr, visit, cb_data);
-			break;
-		}
+	for (size_t i=0; i<p->exprs.valid; i++) {
+		const struct cclerical_expr *e = p->exprs.data[i];
+		visit_varrefs_expr(decls, e, visit, cb_data);
 	}
 }
 
@@ -502,19 +485,13 @@ static void export_irram_prog(const vec_t *decls,
                               const struct cclerical_prog *p, int lvl)
 {
 	cclprintf(lvl-1, "{\n");
-	for (size_t i=0; i<p->stmts.valid; i++) {
-		struct cclerical_stmt *s = p->stmts.data[i];
-		switch (s->type) {
-		case CCLERICAL_STMT_EXPR: {
-			cclprintf(lvl, "%s",
-			          i+1 == p->stmts.valid &&
-			          s->expr->result_type != CCLERICAL_TYPE_UNIT
-			          ? "return " : "");
-			export_irram_expr(decls, s->expr, lvl);
-			cclprintf(0, ";\n");
-			break;
-		}
-		}
+	for (size_t i=0; i<p->exprs.valid; i++) {
+		struct cclerical_expr *e = p->exprs.data[i];
+		cclprintf(lvl, "%s", (i+1 == p->exprs.valid
+		                      && e->result_type != CCLERICAL_TYPE_UNIT)
+		                     ? "return " : "");
+		export_irram_expr(decls, e, lvl);
+		cclprintf(0, ";\n");
 	}
 	cclprintf(lvl-1, "}\n");
 }

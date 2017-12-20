@@ -165,22 +165,8 @@ static inline int cclerical_expr_is_pure(const struct cclerical_expr *e,
 	return e->min_scope_asgn >= rel_to_scope_idx;
 }
 
-enum cclerical_stmt_type {
-	CCLERICAL_STMT_EXPR,
-};
-
-struct cclerical_stmt {
-	enum cclerical_stmt_type type;
-	union {
-		struct cclerical_expr *expr;
-	};
-};
-
-struct cclerical_stmt * cclerical_stmt_create(enum cclerical_stmt_type type);
-void                    cclerical_stmt_destroy(struct cclerical_stmt *s);
-
 struct cclerical_prog {
-	struct cclerical_vector stmts; /* of struct cclerical_stmt *, size >= 1 */
+	struct cclerical_vector exprs; /* of struct cclerical_expr *, size >= 1 */
 };
 
 struct cclerical_prog * cclerical_prog_create(void);
