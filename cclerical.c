@@ -61,7 +61,7 @@ enum cclerical_type cclerical_prog_type(const struct cclerical_prog *p)
 
 void cclerical_constant_fini(struct cclerical_constant *c)
 {
-	switch (c->lower_type) {
+	switch (c->type) {
 	case CCLERICAL_TYPE_UNIT:
 	case CCLERICAL_TYPE_BOOL:
 		break;

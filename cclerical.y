@@ -556,6 +556,18 @@ static int expr_type(const struct cclerical_parser *p,
 	}
 	case CCLERICAL_EXPR_LIM:
 		expr_t = e->lim.seq->result_type;
+		switch (expr_t) {
+		case CCLERICAL_TYPE_UNIT:
+			ERROR(locp, "limit expression of Unit type\n");
+			return 0;
+		case CCLERICAL_TYPE_BOOL:
+		case CCLERICAL_TYPE_INT:
+			WARN(locp, "limit expression of %s type\n",
+			     CCLERICAL_TYPE_STR[expr_t]);
+			break;
+		case CCLERICAL_TYPE_REAL:
+			break;
+		}
 		break;
 	case CCLERICAL_EXPR_CASE: {
 		cclerical_type_set_t arg_t = 0;
@@ -583,7 +595,7 @@ static int expr_type(const struct cclerical_parser *p,
 		break;
 	}
 	case CCLERICAL_EXPR_CNST:
-		expr_t = e->cnst.lower_type;
+		expr_t = e->cnst.type;
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
 		expr_t = e->decl_asgn.prog->result_type;

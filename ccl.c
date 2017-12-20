@@ -62,14 +62,13 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 	}
 	case CCLERICAL_EXPR_CNST: {
 		fprintf(stderr, "%*scnst: ", lvl, "");
-		if (e->cnst.lower_type == CCLERICAL_TYPE_BOOL)
+		if (e->cnst.type == CCLERICAL_TYPE_BOOL)
 			fprintf(stderr, "%s",
 			        e->cnst.boolean ? "true" : "false");
 		else
 			fprintf(stderr, "(%s)_%u",
 			        e->cnst.numeric.str, e->cnst.numeric.base);
-		fprintf(stderr, " : %s\n",
-		        CCLERICAL_TYPE_STR[e->cnst.lower_type]);
+		fprintf(stderr, " : %s\n", CCLERICAL_TYPE_STR[e->cnst.type]);
 		break;
 	}
 	case CCLERICAL_EXPR_IF:
@@ -332,7 +331,7 @@ static void export_irram_expr(const vec_t *decls,
 {
 	switch (e->type) {
 	case CCLERICAL_EXPR_CNST:
-		switch (e->cnst.lower_type) {
+		switch (e->cnst.type) {
 		case CCLERICAL_TYPE_UNIT:
 			abort();
 		case CCLERICAL_TYPE_BOOL:
@@ -341,7 +340,7 @@ static void export_irram_expr(const vec_t *decls,
 		case CCLERICAL_TYPE_INT:
 		case CCLERICAL_TYPE_REAL:
 			cclprintf(0, "%s(\"%s\")",
-			          CCLERICAL_iRRAM_TYPES[e->cnst.lower_type],
+			          CCLERICAL_iRRAM_TYPES[e->cnst.type],
 			          e->cnst.numeric.str);
 			break;
 		}

@@ -29,14 +29,14 @@ static void update_loc(YYLTYPE *loc, const char *s)
 
 static void cnst_bool(struct cclerical_constant *c, int v)
 {
-	c->lower_type = CCLERICAL_TYPE_BOOL;
+	c->type = CCLERICAL_TYPE_BOOL;
 	c->boolean = v;
 }
 
 static void cnst_num(struct cclerical_constant *c, const char *s, int base,
-                     enum cclerical_type ltype)
+                     enum cclerical_type type)
 {
-	c->lower_type = ltype;
+	c->type = type;
 	c->numeric.str = ccl_strdup(s);
 	c->numeric.base = base;
 }

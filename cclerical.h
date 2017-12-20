@@ -53,7 +53,7 @@ extern const char *const CCLERICAL_TYPE_STR[];
 typedef unsigned cclerical_type_set_t;
 
 struct cclerical_constant {
-	enum cclerical_type lower_type;
+	enum cclerical_type type;
 	union {
 		int boolean;
 		struct {
