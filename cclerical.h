@@ -138,7 +138,7 @@ struct cclerical_expr {
 			/* of type { (void *)(uintptr_t)cclerical_id_t;
 			 *           struct cclerical_expr * } */
 			struct cclerical_vector inits;
-			struct cclerical_expr *prog;
+			struct cclerical_expr *body;
 		} decl_asgn;
 		struct {} skip; /* skip */
 		struct {

@@ -100,7 +100,7 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 			struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
 			cclerical_expr_destroy(f);
 		}
-		cclerical_expr_destroy(e->decl_asgn.prog);
+		cclerical_expr_destroy(e->decl_asgn.body);
 		break;
 	case CCLERICAL_EXPR_LIM:
 		cclerical_expr_destroy(e->lim.seq);

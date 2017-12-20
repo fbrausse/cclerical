@@ -325,7 +325,7 @@ expr
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
 	$$->decl_asgn.inits = $3;
-	$$->decl_asgn.prog = $5;
+	$$->decl_asgn.body = $5;
 	free(cclerical_parser_close_scope(p).var_idcs.data);
 	EXPR_NEW($$,0);
     }
@@ -659,8 +659,8 @@ static int expr_type(const struct cclerical_parser *p,
 		/* no assignments; min_scope_asgn = SIZE_MAX */
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
-		expr_t = e->decl_asgn.prog->result_type;
-		min_scope_asgn = e->decl_asgn.prog->min_scope_asgn;
+		expr_t = e->decl_asgn.body->result_type;
+		min_scope_asgn = e->decl_asgn.body->min_scope_asgn;
 		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
 			cclerical_id_t v = (uintptr_t)e->decl_asgn.inits.data[i];
 			const struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];

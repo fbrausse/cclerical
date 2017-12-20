@@ -38,7 +38,7 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 			pexpr(e->decl_asgn.inits.data[i+1], lvl+1);
 		}
 		fprintf(stderr, "%*sdecl-asgn computing\n", lvl, "");
-		pexpr(e->decl_asgn.prog, lvl+1);
+		pexpr(e->decl_asgn.body, lvl+1);
 		fprintf(stderr, "%*s decl-asgn done\n", lvl, "");
 		break;
 	case CCLERICAL_EXPR_OP: {
@@ -257,7 +257,7 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 			visit(decls, (uintptr_t)e->decl_asgn.inits.data[i], VAR_ACCESS_DEF, cb_data);
 			visit_varrefs_expr(decls, e->decl_asgn.inits.data[i+1], visit, cb_data);
 		}
-		visit_varrefs_expr(decls, e->decl_asgn.prog, visit, cb_data);
+		visit_varrefs_expr(decls, e->decl_asgn.body, visit, cb_data);
 		break;
 	case CCLERICAL_EXPR_FUN_CALL:
 		visit(decls, e->fun_call.fun, VAR_ACCESS_CALL, cb_data);
@@ -356,7 +356,7 @@ static void export_irram_expr(const vec_t *decls,
 		}
 		cclprintf(0, "){\n");
 		cclprintf(lvl+1, "%s", e->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
-		export_irram_expr(decls, e->decl_asgn.prog, lvl+1);
+		export_irram_expr(decls, e->decl_asgn.body, lvl+1);
 		cclprintf(0, ";\n");
 		cclprintf(lvl, "}(");
 		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
