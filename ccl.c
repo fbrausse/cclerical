@@ -57,8 +57,8 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 			[CCLERICAL_OP_NE]  = "ne",
 		};
 		fprintf(stderr, "%*sop: %s\n", lvl, "", ops[e->op.op]);
-		pexpr(e->op.arg1, lvl+1);
-		pexpr(e->op.arg2, lvl+1);
+		for (unsigned i=0; i<cclerical_op_arity(e->op.op); i++)
+			pexpr(e->op.args[i], lvl+1);
 		break;
 	}
 	case CCLERICAL_EXPR_CNST: {
@@ -256,9 +256,8 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 		visit_varrefs_expr(decls, e->lim.seq, visit, cb_data);
 		break;
 	case CCLERICAL_EXPR_OP:
-		visit_varrefs_expr(decls, e->op.arg1, visit, cb_data);
-		if (!cclerical_op_is_unary(e->op.op))
-			visit_varrefs_expr(decls, e->op.arg2, visit, cb_data);
+		for (unsigned i=0; i<cclerical_op_arity(e->op.op); i++)
+			visit_varrefs_expr(decls, e->op.args[i], visit, cb_data);
 		break;
 	case CCLERICAL_EXPR_VAR:
 		visit(decls, e->var, VAR_ACCESS_RO, cb_data);
@@ -368,20 +367,20 @@ static void export_irram_expr(const vec_t *decls,
 	case CCLERICAL_EXPR_OP:
 		if (cclerical_op_is_unary(e->op.op)) {
 			cclprintf(0, "%s(", CCLERICAL_CPP_UOPS[e->op.op]);
-			export_irram_expr(decls, e->op.arg1, lvl);
+			export_irram_expr(decls, e->op.args[0], lvl);
 			cclprintf(0, ")");
 			break;
 		} else if (e->op.op == CCLERICAL_OP_EXP) {
 			cclprintf(0, "power((");
-			export_irram_expr(decls, e->op.arg1, lvl);
+			export_irram_expr(decls, e->op.args[0], lvl);
 			cclprintf(0, "), (");
-			export_irram_expr(decls, e->op.arg2, lvl);
+			export_irram_expr(decls, e->op.args[1], lvl);
 			cclprintf(0, "))");
 		} else {
 			cclprintf(0, "(");
-			export_irram_expr(decls, e->op.arg1, lvl);
+			export_irram_expr(decls, e->op.args[0], lvl);
 			cclprintf(0, ") %s (", CCLERICAL_CPP_BOPS[e->op.op]);
-			export_irram_expr(decls, e->op.arg2, lvl);
+			export_irram_expr(decls, e->op.args[1], lvl);
 			cclprintf(0, ")");
 		}
 		break;

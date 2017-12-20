@@ -546,6 +546,14 @@ static int is_pure(const struct cclerical_parser *p,
 
 #define MIN(a,b)	((a) < (b) ? (a) : (b))
 
+static const char *CARDINALS[] = {
+	"first", "second",
+};
+
+#define ARRAY_SIZE(...)		(sizeof(__VA_ARGS__)/sizeof(*(__VA_ARGS__)))
+
+_Static_assert(ARRAY_SIZE(CARDINALS) == CCLERICAL_OP_MAX_ARITY, "update CARDINALS[]");
+
 static int expr_type(const struct cclerical_parser *p,
                      const struct cclerical_expr *e, YYLTYPE *locp,
                      enum cclerical_type *res, size_t *res_min_scope_asgn)
@@ -554,28 +562,24 @@ static int expr_type(const struct cclerical_parser *p,
 	size_t min_scope_asgn = SIZE_MAX;
 	switch (e->type) {
 	case CCLERICAL_EXPR_OP: {
-		cclerical_type_set_t arg_t = 1U << e->op.arg1->result_type;
-		if (!is_pure(p, e->op.arg1)) {
-			ERROR(locp, "impure expression as %soperand to %s",
-			      cclerical_op_is_unary(e->op.op) ? "" : "first ",
-			      OP_STRS[e->op.op]);
-			return 0;
-		}
-		min_scope_asgn = e->op.arg1->min_scope_asgn;
-		if (!cclerical_op_is_unary(e->op.op)) {
-			const struct cclerical_expr *b = e->op.arg2;
-			arg_t |= 1U << b->result_type;
-			if (!is_pure(p, b)) {
-				ERROR(locp, "impure expression as second "
-				            "operand to %s", OP_STRS[e->op.op]);
+		cclerical_type_set_t arg_t = 0;
+		for (unsigned i=0; i<cclerical_op_arity(e->op.op); i++) {
+			if (!is_pure(p, e->op.args[i])) {
+				ERROR(locp,
+				      "impure expression as %s operand to %s",
+				      CARDINALS[i], OP_STRS[e->op.op]);
 				return 0;
 			}
-			min_scope_asgn = MIN(min_scope_asgn, b->min_scope_asgn);
+			enum cclerical_type t = e->op.args[i]->result_type;
+			if (t == CCLERICAL_TYPE_UNIT) {
+				ERROR(locp, "%s operand to %s of Unit type",
+				      CARDINALS[i], OP_STRS[e->op.op]);
+				return 0;
+			}
+			arg_t |= 1U << t;
 		}
-		if (arg_t & (1U << CCLERICAL_TYPE_UNIT)) {
-			ERROR(locp, "operand of Unit type");
-			return 0;
-		}
+		/* all sub-expressions are pure, operation is pure;
+		 * min_scope_asgn = SIZE_MAX */
 		if ((e->op.op == CCLERICAL_OP_LT || e->op.op == CCLERICAL_OP_GT)
 		    && (arg_t & (1U << CCLERICAL_TYPE_BOOL))) {
 			ERROR(locp, "comparison with Boolean type");

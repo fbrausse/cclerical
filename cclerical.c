@@ -33,6 +33,11 @@ int cclerical_op_is_unary(enum cclerical_op op)
 	return op == CCLERICAL_OP_NEG || op == CCLERICAL_OP_NOT;
 }
 
+unsigned cclerical_op_arity(enum cclerical_op op)
+{
+	return cclerical_op_is_unary(op) ? 1 : 2;
+}
+
 struct cclerical_expr * cclerical_expr_create(enum cclerical_expr_type type)
 {
 	struct cclerical_expr *e = malloc(sizeof(struct cclerical_expr));
@@ -41,12 +46,12 @@ struct cclerical_expr * cclerical_expr_create(enum cclerical_expr_type type)
 }
 
 struct cclerical_expr * cclerical_expr_create_op(enum cclerical_op op,
-                                               struct cclerical_expr *a,
-                                               struct cclerical_expr *b)
+                                                 struct cclerical_expr *a,
+                                                 struct cclerical_expr *b)
 {
 	struct cclerical_expr *e = cclerical_expr_create(CCLERICAL_EXPR_OP);
-	e->op.arg1 = a;
-	e->op.arg2 = b;
+	e->op.args[0] = a;
+	e->op.args[1] = b;
 	e->op.op = op;
 	return e;
 }
@@ -107,9 +112,8 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 		cclerical_scope_fini(&e->lim.local);
 		break;
 	case CCLERICAL_EXPR_OP:
-		cclerical_expr_destroy(e->op.arg1);
-		if (!cclerical_op_is_unary(e->op.op))
-			cclerical_expr_destroy(e->op.arg2);
+		for (unsigned i=0; i<cclerical_op_arity(e->op.op); i++)
+			cclerical_expr_destroy(e->op.args[i]);
 		break;
 	case CCLERICAL_EXPR_SKIP:
 		break;

@@ -90,7 +90,10 @@ enum cclerical_op {
 	CCLERICAL_OP_NE,
 };
 
+#define CCLERICAL_OP_MAX_ARITY	2
+
 int cclerical_op_is_unary(enum cclerical_op);
+unsigned cclerical_op_arity(enum cclerical_op);
 
 enum cclerical_expr_type {
 	CCLERICAL_EXPR_DECL_ASGN,
@@ -120,7 +123,7 @@ struct cclerical_expr {
 			struct cclerical_vector params; /* of type struct cclerical_expr * */
 		} fun_call;
 		struct {
-			struct cclerical_expr *arg1, *arg2;
+			struct cclerical_expr *args[CCLERICAL_OP_MAX_ARITY];
 			enum cclerical_op op;
 		} op;
 		struct cclerical_vector cases; /* of cclerical_case */
