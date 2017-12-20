@@ -80,6 +80,7 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 			struct cclerical_expr *f = e->fun_call.params.data[i];
 			cclerical_expr_destroy(f);
 		}
+		cclerical_vector_fini(&e->fun_call.params);
 		break;
 	case CCLERICAL_EXPR_CNST:
 		cclerical_constant_fini(&e->cnst);
@@ -98,6 +99,7 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 			struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
 			cclerical_expr_destroy(f);
 		}
+		cclerical_vector_fini(&e->decl_asgn.inits);
 		cclerical_expr_destroy(e->decl_asgn.body);
 		break;
 	case CCLERICAL_EXPR_LIM:
@@ -252,6 +254,7 @@ void cclerical_parser_fini(struct cclerical_parser *p)
 		struct cclerical_scope sc = cclerical_parser_close_scope(p);
 		cclerical_scope_fini(&sc);
 	}
+	cclerical_vector_fini(&p->scopes);
 	for (size_t i=0; i<p->decls.valid; i++) {
 		struct cclerical_decl *d = p->decls.data[i];
 		cclerical_decl_destroy(d);

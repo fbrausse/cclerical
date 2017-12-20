@@ -256,6 +256,7 @@ expr
 	cclerical_id_t v;
 	if (!lookup_var(p, $1, &v, NULL, &yylloc, 0, "variable"))
 		YYERROR;
+	free($1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_VAR);
 	$$->var = v;
 	EXPR_NEW($$,1);
@@ -326,6 +327,7 @@ expr
 	size_t scope_idx;
 	if (!lookup_var(p, $1, &v, &scope_idx, &yylloc, 1, "variable"))
 		YYERROR;
+	free($1);
 	struct cclerical_decl *d = p->decls.data[v];
 	EXPR($3, 1U << d->value_type, 1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_ASGN);
@@ -771,7 +773,8 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 	cclerical_id_t v;
 	if (!lookup_var(p, id, &v, NULL, locp, 0, "function"))
 		return NULL;
-	struct cclerical_decl *d = p->decls.data[v];
+	free(id);
+	const struct cclerical_decl *d = p->decls.data[v];
 	if (d->type != CCLERICAL_DECL_FUN) {
 		ERROR(locp, "'%s' does not identify a function", d->id);
 		return NULL;
