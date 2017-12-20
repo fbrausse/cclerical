@@ -604,6 +604,14 @@ static int expr_type(const struct cclerical_parser *p,
 		expr_t = CCLERICAL_TYPE_UNIT;
 		break;
 	case CCLERICAL_EXPR_SEQ:
+		for (size_t i=0; i+1<e->seq->stmts.valid; i++) {
+			const struct cclerical_stmt *s = e->seq->stmts.data[i];
+			const struct cclerical_expr *f = s->expr;
+			if (f->result_type != CCLERICAL_TYPE_UNIT)
+				WARN(&f->source_loc, "initial expr in sequence "
+				                     "has non-Unit type %s\n",
+				     CCLERICAL_TYPE_STR[f->result_type]);
+		}
 		expr_t = cclerical_prog_type(e->seq);
 		break;
 	}
@@ -642,6 +650,7 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 		      common);
 		return NULL;
 	}
+	e->source_loc = *locp;
 	return e;
 }
 

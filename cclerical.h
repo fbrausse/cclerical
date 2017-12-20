@@ -11,6 +11,11 @@
 extern "C" {
 #endif
 
+struct cclerical_source_loc {
+	int first_line, first_column;
+	int last_line, last_column;
+};
+
 static inline void * memdup(const void *src, size_t n)
 {
 	return memcpy(malloc(n), src, n);
@@ -105,6 +110,7 @@ enum cclerical_expr_type {
 struct cclerical_expr {
 	enum cclerical_expr_type type;
 	enum cclerical_type result_type;
+	struct cclerical_source_loc source_loc;
 	union {
 		struct cclerical_constant cnst;
 		cclerical_id_t var;
@@ -187,11 +193,6 @@ struct cclerical_parser_scope {
 	struct cclerical_scope scope;
 	unsigned this_read_only : 1;
 	unsigned prev_read_only : 1;
-};
-
-struct cclerical_source_loc {
-	int first_line, first_column;
-	int last_line, last_column;
 };
 
 struct cclerical_decl {
