@@ -655,13 +655,13 @@ static int expr_type(const struct cclerical_parser *p,
 		expr_t = e->cnst.type;
 		/* no assignments; min_scope_asgn = SIZE_MAX */
 		break;
-	case CCLERICAL_EXPR_DECL_ASGN:
+	case CCLERICAL_EXPR_DECL_ASGN: {
 		expr_t = e->decl_asgn.body->result_type;
 		min_scope_asgn = e->decl_asgn.body->min_scope_asgn;
-		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
-			cclerical_id_t v = (uintptr_t)e->decl_asgn.inits.data[i];
-			const struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
-			if (!is_pure(p, f)) {
+		const struct cclerical_vector *inits = &e->decl_asgn.inits;
+		for (size_t i=0; i<inits->valid; i+=2) {
+			cclerical_id_t v = (uintptr_t)inits->data[i];
+			if (!is_pure(p, inits->data[i+1])) {
 				const struct cclerical_decl *d = p->decls.data[v];
 				ERROR(locp, "impure expression in "
 				            "initialization of variable %s\n",
@@ -670,6 +670,7 @@ static int expr_type(const struct cclerical_parser *p,
 			}
 		}
 		break;
+	}
 	case CCLERICAL_EXPR_VAR: {
 		const struct cclerical_decl *v = p->decls.data[e->var];
 		expr_t = v->value_type;
@@ -792,7 +793,7 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 	for (size_t i=0; i<params.valid; i++) {
 		struct cclerical_expr *e = params.data[i];
 		enum cclerical_type arg_type;
-		if (d->fun.body) {
+		if (!cclerical_decl_fun_is_external(d)) {
 			cclerical_id_t param = (uintptr_t)d->fun.arguments.data[i];
 			struct cclerical_decl *dparam = p->decls.data[param];
 			arg_type = dparam->value_type;

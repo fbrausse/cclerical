@@ -403,8 +403,8 @@ static void export_irram_expr(const vec_t *decls,
 			cclprintf(lvl+2, "%s", f->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
 			export_irram_expr(decls, f, lvl+2);
 			cclprintf(0, ";\n");
-			if (f->result_type != CCLERICAL_TYPE_UNIT)
-				cclprintf(lvl+2, "break;");
+			if (f->result_type == CCLERICAL_TYPE_UNIT)
+				cclprintf(lvl+2, "break;\n");
 		}
 		cclprintf(lvl+1, "}\n");
 		cclprintf(lvl, "}()");
@@ -442,7 +442,7 @@ static void export_irram_expr(const vec_t *decls,
 		export_irram_var_decl(decls, e->lim.seq_idx, 0);
 		cclprintf(0, " = -p;\n");
 		cclprintf(lvl+1, "%s", e->lim.seq->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
-		export_irram_expr(decls, e->lim.seq, lvl+2);
+		export_irram_expr(decls, e->lim.seq, lvl+1);
 		cclprintf(0, ";\n");
 		cclprintf(lvl, "}");
 		for (size_t i=0; i<prev_scope_vars.valid; i++) {
@@ -456,25 +456,25 @@ static void export_irram_expr(const vec_t *decls,
 	}
 	/* these return Unit, no encapsulation into lambda-fun required */
 	case CCLERICAL_EXPR_WHILE:
-		cclprintf(lvl, "while (");
+		cclprintf(0, "while (");
 		export_irram_expr(decls, e->loop.cond, lvl);
 		cclprintf(0, ") {\n");
 		cclprintf(lvl+1, "%s", e->loop.body->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
 		export_irram_expr(decls, e->loop.body, lvl+1);
 		cclprintf(0, ";\n");
-		cclprintf(lvl, "}\n");
+		cclprintf(lvl, "}");
 		break;
 	case CCLERICAL_EXPR_ASGN:
-		cclprintf(lvl, "%s%zu = ", CCL_PREFIX, e->asgn.var);
+		cclprintf(0, "%s%zu = ", CCL_PREFIX, e->asgn.var);
 		export_irram_expr(decls, e->asgn.expr, lvl);
-		cclprintf(0, ";\n");
+		//cclprintf(0, ";\n");
 		break;
 	case CCLERICAL_EXPR_SKIP:
-		cclprintf(lvl, ";\n");
+		cclprintf(0, "/* skip */");
 		break;
 	case CCLERICAL_EXPR_SEQ:
-		cclprintf(lvl, "[&]");
-		export_irram_prog(decls, e->seq, lvl+1);
+		cclprintf(0, "[&]");
+		export_irram_prog(decls, e->seq, lvl);
 		cclprintf(0, "()");
 		break;
 	}
@@ -483,16 +483,16 @@ static void export_irram_expr(const vec_t *decls,
 static void export_irram_prog(const vec_t *decls,
                               const struct cclerical_prog *p, int lvl)
 {
-	cclprintf(lvl-1, "{\n");
+	cclprintf(0, "{\n");
 	for (size_t i=0; i<p->exprs.valid; i++) {
 		struct cclerical_expr *e = p->exprs.data[i];
-		cclprintf(lvl, "%s", (i+1 == p->exprs.valid
-		                      && e->result_type != CCLERICAL_TYPE_UNIT)
-		                     ? "return " : "");
-		export_irram_expr(decls, e, lvl);
+		cclprintf(lvl+1, "%s", (i+1 == p->exprs.valid
+		                        && e->result_type != CCLERICAL_TYPE_UNIT)
+		                       ? "return " : "");
+		export_irram_expr(decls, e, lvl+1);
 		cclprintf(0, ";\n");
 	}
-	cclprintf(lvl-1, "}\n");
+	cclprintf(lvl, "}");
 }
 
 static void export_irram(const struct cclerical_prog *p, const vec_t *decls)
@@ -512,15 +512,15 @@ static void export_irram(const struct cclerical_prog *p, const vec_t *decls)
 			continue;
 		export_irram_fun_decl(decls, i);
 		printf("\n");
-		export_irram_prog(decls, d->fun.body, 1);
-		printf("\n");
+		export_irram_prog(decls, d->fun.body, 0);
+		printf("\n\n");
 	}
 	printf("void compute()\n");
 	printf("{\n");
 	cclprintf(1, "using iRRAM::cout;\n");
 	cclprintf(1, "cout << []");
-	export_irram_prog(decls, p, 2);
-	cclprintf(1, "() << \"\\n\";\n");
+	export_irram_prog(decls, p, 1);
+	cclprintf(0, "() << \"\\n\";\n");
 	printf("}\n");
 //	printf("\tREAL vars[%zu];\n", decls->valid);
 }

@@ -217,6 +217,11 @@ struct cclerical_decl {
 #define CCLERICAL_DECL_INIT_FUN(value_type,id,loc,args,body) \
 	{ CCLERICAL_DECL_FUN, value_type, id, loc, .fun = { args, body }, }
 
+static inline int cclerical_decl_fun_is_external(const struct cclerical_decl *d)
+{
+	return !d->fun.body;
+}
+
 void cclerical_decl_fini(const struct cclerical_decl *d);
 
 struct cclerical_parser {
