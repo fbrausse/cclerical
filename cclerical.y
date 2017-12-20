@@ -14,10 +14,12 @@ typedef struct cclerical_source_loc YYLTYPE;
 #include "cclerical.tab.h"
 #include "cclerical.lex.h"
 
-static void cclerical_error0(const YYLTYPE *locp, const char *file, int lineno,
-                             const char *fmt, ...);
+static void logmsg(const YYLTYPE *locp, const char *file, int lineno,
+                   const char *msg_type, const char *fmt, ...);
 
-#define ERROR(locp,...) cclerical_error0(locp, __FILE__, __LINE__, __VA_ARGS__)
+#define ERROR(locp,...) logmsg(locp,__FILE__,__LINE__,"error",__VA_ARGS__)
+#define WARN(locp,...)  logmsg(locp,__FILE__,__LINE__,"warning",__VA_ARGS__)
+
 #define cclerical_error(locp,p,scanner,...) ERROR(locp, __VA_ARGS__)
 
 static int lookup_var(struct cclerical_parser *p, char *id,
@@ -434,8 +436,8 @@ static void print_loc(FILE *out, const YYLTYPE *locp)
 	}
 }
 
-static void cclerical_error0(const YYLTYPE *locp, const char *file, int lineno,
-                             const char *fmt, ...)
+static void logmsg(const YYLTYPE *locp, const char *file, int lineno,
+                   const char *msg_type, const char *fmt, ...)
 {
 #ifndef NDEBUG
 	fprintf(stderr, "%s:%d: ", file, lineno);
@@ -443,7 +445,7 @@ static void cclerical_error0(const YYLTYPE *locp, const char *file, int lineno,
 	(void)file;
 	(void)lineno;
 #endif
-	fprintf(stderr, "error at ");
+	fprintf(stderr, "%s at ", msg_type);
 	print_loc(stderr, locp);
 	fprintf(stderr, ": ");
 	va_list ap;
