@@ -3,10 +3,15 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "cclerical.h"
 #include "cclerical.tab.h" /* cclerical_parse*() */
 #include "cclerical.lex.h" /* cclerical_lex_(init|destroy) */
+
+#define MAX(a,b)	((a) > (b) ? (a) : (b))
 
 static void pprog(const struct cclerical_prog *p, int lvl);
 
@@ -525,19 +530,118 @@ static void export_irram(const struct cclerical_prog *p, const vec_t *decls)
 //	printf("\tREAL vars[%zu];\n", decls->valid);
 }
 
+typedef void backend_f(const struct cclerical_prog *p, const vec_t *decls);
+
+static struct compiler {
+	const char *id;
+	backend_f *compile;
+} const COMPILERS[] = {
+	{ "iRRAM", export_irram, },
+	{ NULL, NULL, }
+};
+
+struct cclerical_input {
+	const char *name;
+	void *data;
+	size_t size;
+	void (*fini)(struct cclerical_input *);
+};
+
+static int compile_t17(const struct cclerical_input *in,
+                       const struct compiler *cc, int dump_parse_tree)
+{
+	struct cclerical_parser p;
+	yyscan_t scanner;
+	cclerical_lex_init(&scanner);
+	YY_BUFFER_STATE st = cclerical__scan_bytes(in->data, in->size, scanner);
+	cclerical_parser_init(&p);
+	int r = cclerical_parse(&p, scanner);
+	struct cclerical_prog *cp = p.prog;
+	p.prog = NULL;
+	if (r) {
+		fprintf(stderr, "parse error %d, aborting\n", r);
+		goto done;
+	}
+
+	if (dump_parse_tree)
+		pprog(cp, 0);
+	cc->compile(cp, &p.decls);
+
+done:
+	if (cp)
+		cclerical_prog_destroy(cp);
+	cclerical_parser_fini(&p);
+	cclerical__delete_buffer(st, scanner);
+	cclerical_lex_destroy(scanner);
+	return r;
+}
+
+static void input_munmap(struct cclerical_input *in)
+{
+	munmap(in->data, in->size);
+}
+
+static void input_free(struct cclerical_input *in)
+{
+	free(in->data);
+}
+
+static void open_input(FILE *f, struct cclerical_input *in)
+{
+	struct stat st;
+	if (fstat(fileno(f), &st) == -1)
+		DIE(1,"error stat'ing %s: %s\n", in->name, strerror(errno));
+	if (S_ISREG(st.st_mode)) {
+		in->size = st.st_size;
+		in->data = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE,
+		                MAP_PRIVATE, fileno(f), 0);
+		in->fini = input_munmap;
+		if (in->data != MAP_FAILED)
+			return;
+	}
+	if (S_ISREG(st.st_mode) || S_ISFIFO(st.st_mode) || S_ISCHR(st.st_mode)) {
+		static char buf[1U << 12];
+		in->size = 0;
+		in->data = NULL;
+		in->fini = input_free;
+		size_t sz = 0;
+		for (size_t rd; (rd = fread(buf, 1, sizeof(buf), f)) > 0;) {
+			in->size += rd;
+			if (in->size+rd > sz)
+				in->data = realloc(in->data, sz = MAX(in->size+rd, 2*sz));
+			memcpy(in->data + in->size, buf, rd);
+			in->size += rd;
+			if (rd < sizeof(buf))
+				break;
+		}
+		if (feof(f))
+			return;
+		in->fini(in);
+		int r = ferror(f);
+		if (r)
+			DIE(1,"error reading %s: %s\n", in->name, strerror(r));
+	}
+	DIE(1,"error reading %s: not a regular file or FIFO\n",in->name);
+}
+
 int main(int argc, char **argv)
 {
 	int dump_parse_tree = 0;
+	const struct compiler *cc = NULL;
 
 	for (int opt; (opt = getopt(argc, argv, ":b:dhx:")) != -1;)
 		switch (opt) {
 		case 'b':
-			if (!strcmp(optarg, "iRRAM")) break;
-			DIE(1,"error: just TGT 'iRRAM' supported for option "
-			      "'-b'\n");
+			for (cc = COMPILERS; cc->id; cc++)
+				if (!strcmp(cc->id, optarg))
+					break;
+			if (cc->id)
+				break;
+			DIE(1,"error: TGT '%s' not supported for option '-b'\n",
+			    optarg);
 		case 'd': dump_parse_tree = 1; break;
 		case 'h':
-			printf("usage: %s [-OPTS] [--]\n", argv[0]);
+			printf("usage: %s [-OPTS] [--] [FILE...]\n", argv[0]);
 			printf("\n\
 Options [default]:\n\
   -b TGT     target backend TGT [iRRAM]; supported values for TGT: iRRAM\n\
@@ -557,29 +661,25 @@ Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 		case ':': DIE(1,"error: option '-%c' requires a parameter\n",
 		              optopt);
 		}
-	if (argc - optind > 0)
-		DIE(1,"unrecognized trailing arguments\n");
+	/* defaults */
+	if (!cc)
+		cc = COMPILERS;
 
-	struct cclerical_parser p;
-	yyscan_t scanner;
-	cclerical_lex_init(&scanner);
-	cclerical_parser_init(&p);
-	int r = cclerical_parse(&p, scanner);
-	struct cclerical_prog *cp = p.prog;
-	p.prog = NULL;
-	if (r) {
-		fprintf(stderr, "parse error %d, aborting\n", r);
-		goto done;
+	int r = 0;
+	if (argc == optind) {
+		struct cclerical_input in = { .name = "<stdin>" };
+		open_input(stdin, &in);
+		r = compile_t17(&in, cc, dump_parse_tree);
+		in.fini(&in);
+	}
+	for (; !r && optind < argc; optind++) {
+		struct cclerical_input in = { .name = argv[optind] };
+		FILE *f = fopen(in.name, "rb");
+		open_input(f, &in);
+		fclose(f);
+		r = compile_t17(&in, cc, dump_parse_tree);
+		in.fini(&in);
 	}
 
-	if (dump_parse_tree)
-		pprog(cp, 0);
-	export_irram(cp, &p.decls);
-
-done:
-	if (cp)
-		cclerical_prog_destroy(cp);
-	cclerical_parser_fini(&p);
-	cclerical_lex_destroy(scanner);
-	return !!r;
+	return r;
 }
