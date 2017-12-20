@@ -111,6 +111,7 @@ struct cclerical_expr {
 	enum cclerical_expr_type type;
 	enum cclerical_type result_type;
 	struct cclerical_source_loc source_loc;
+	size_t min_scope_asgn;
 	union {
 		struct cclerical_constant cnst;
 		cclerical_id_t var;
@@ -157,6 +158,12 @@ struct cclerical_expr * cclerical_expr_create_op(enum cclerical_op op,
                                                  struct cclerical_expr *a,
                                                  struct cclerical_expr *b);
 void                    cclerical_expr_destroy(struct cclerical_expr *e);
+
+static inline int cclerical_expr_is_pure(const struct cclerical_expr *e,
+                                         size_t rel_to_scope_idx)
+{
+	return e->min_scope_asgn >= rel_to_scope_idx;
+}
 
 enum cclerical_stmt_type {
 	CCLERICAL_STMT_EXPR,
@@ -232,8 +239,7 @@ struct cclerical_parser {
 void cclerical_parser_init(struct cclerical_parser *p);
 
 int  cclerical_parser_var_lookup(struct cclerical_parser *p, const char *id,
-                                 cclerical_id_t *v, int rw);
-
+                                 cclerical_id_t *v, size_t *scope_idx, int rw);
 
 int cclerical_parser_new_decl(struct cclerical_parser *p,
                               const struct cclerical_decl *decl,

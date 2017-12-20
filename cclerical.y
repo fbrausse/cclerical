@@ -23,8 +23,8 @@ static void logmsg(const YYLTYPE *locp, const char *file, int lineno,
 #define cclerical_error(locp,p,scanner,...) ERROR(locp, __VA_ARGS__)
 
 static int lookup_var(struct cclerical_parser *p, char *id,
-                      cclerical_id_t *v, YYLTYPE *locp, int rw,
-                      const char *id_desc);
+                      cclerical_id_t *v, size_t *scope_idx, YYLTYPE *locp,
+                      int rw, const char *id_desc);
 
 #define TYPES_ALL (1U << CCLERICAL_TYPE_UNIT | \
                    1U << CCLERICAL_TYPE_BOOL | \
@@ -34,10 +34,10 @@ static int lookup_var(struct cclerical_parser *p, char *id,
 static struct cclerical_expr * expr(struct cclerical_parser *p,
                                    struct cclerical_expr *e,
                                    cclerical_type_set_t forced,
-                                   YYLTYPE *locp);
+                                   int req_pure, YYLTYPE *locp);
 static struct cclerical_expr * expr_new(struct cclerical_parser *p,
                                        struct cclerical_expr *e,
-                                       YYLTYPE *locp);
+                                       int req_pure, YYLTYPE *locp);
 
 static struct cclerical_expr * fun_call(struct cclerical_parser *p,
                                         YYLTYPE *locp, char *id,
@@ -46,9 +46,10 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
                     cclerical_id_t *v, const char *decl_desc);
 
-#define EXPR_NEW(e)	do { if (!expr_new(p, e, &yylloc)) YYERROR; } while (0)
-#define EXPR(e,forced)	\
-	do { if (!expr(p, e, forced, &yylloc)) YYERROR; } while (0)
+#define EXPR_NEW(e,req_pure)	\
+	do { if (!expr_new(p, e, req_pure, &yylloc)) YYERROR; } while (0)
+#define EXPR(e,forced,req_pure)	\
+	do { if (!expr(p, e, forced, req_pure, &yylloc)) YYERROR; } while (0)
 
 %}
 
@@ -238,41 +239,41 @@ pure_expr
 
 /* TODO: check during runtime whether operands are pure */
 expr
-  : expr '+' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_ADD, $1, $3)); }
-  | expr '-' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_SUB, $1, $3)); }
-  | expr '*' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_MUL, $1, $3)); }
-  | expr '/' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_DIV, $1, $3)); }
-  | expr '^' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_EXP, $1, $3)); }
-  | expr '<' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_LT, $1, $3)); }
-  | expr '>' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GT, $1, $3)); }
-  | expr '|' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_OR, $1, $3)); }
-  | expr '&' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_AND, $1, $3)); }
-  | expr TK_NE expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3)); }
-  | '!' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NOT, $2, NULL)); }
+  : expr '+' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_ADD, $1, $3),1); }
+  | expr '-' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_SUB, $1, $3),1); }
+  | expr '*' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_MUL, $1, $3),1); }
+  | expr '/' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_DIV, $1, $3),1); }
+  | expr '^' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_EXP, $1, $3),1); }
+  | expr '<' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_LT, $1, $3),1); }
+  | expr '>' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GT, $1, $3),1); }
+  | expr '|' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_OR, $1, $3),1); }
+  | expr '&' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_AND, $1, $3),1); }
+  | expr TK_NE expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3),1); }
+  | '!' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NOT, $2, NULL),1); }
   | '-' expr %prec UMINUS
     {
-	EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NEG, $2, NULL));
+	EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NEG, $2, NULL),1);
     }
   | IDENT '(' fun_call_param_spec ')'
     {
 	if (!($$ = fun_call(p, &yyloc, $1, $3)))
 		YYERROR;
-	EXPR_NEW($$);
+	EXPR_NEW($$,1);
     }
   | IDENT
     {
 	cclerical_id_t v;
-	if (!lookup_var(p, $1, &v, &yylloc, 0, "variable"))
+	if (!lookup_var(p, $1, &v, NULL, &yylloc, 0, "variable"))
 		YYERROR;
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_VAR);
 	$$->var = v;
-	EXPR_NEW($$);
+	EXPR_NEW($$,1);
     }
   | CONSTANT
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_CNST);
 	$$->cnst = $1;
-	EXPR_NEW($$);
+	EXPR_NEW($$,1);
     }
   | TK_LIM IDENT
     {
@@ -287,37 +288,37 @@ expr
 	$$->lim.seq_idx = $<varref>3;
 	$$->lim.seq = $5;
 	$$->lim.local = cclerical_parser_close_scope(p);
-	EXPR_NEW($$);
+	EXPR_NEW($$,1);
     }
   | '(' prog ')'
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_SEQ);
 	$$->seq = $2;
-	EXPR_NEW($$);
+	EXPR_NEW($$,0);
     }
   | TK_CASE cases TK_END
     {
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_CASE);
 	$$->cases = $2;
-	EXPR_NEW($$);
+	EXPR_NEW($$,0);
     }
   | TK_IF pure_expr TK_THEN expr
     {
-	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
+	EXPR($2, 1U << CCLERICAL_TYPE_BOOL, 1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_IF);
 	$$->branch.cond = $2;
 	$$->branch.if_true = $4;
 	$$->branch.if_false = NULL;
-	EXPR_NEW($$);
+	EXPR_NEW($$,0);
     }
   | TK_IF pure_expr TK_THEN expr TK_ELSE expr
     {
-	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
+	EXPR($2, 1U << CCLERICAL_TYPE_BOOL, 1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_IF);
 	$$->branch.cond = $2;
 	$$->branch.if_true = $4;
 	$$->branch.if_false = $6;
-	EXPR_NEW($$);
+	EXPR_NEW($$,0);
     }
   | TK_VAR { cclerical_parser_open_scope(p, 0, 0); }
     var_init_list TK_IN expr
@@ -325,29 +326,31 @@ expr
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_DECL_ASGN);
 	$$->decl_asgn.inits = $3;
 	$$->decl_asgn.prog = $5;
-	EXPR_NEW($$);
 	free(cclerical_parser_close_scope(p).var_idcs.data);
+	EXPR_NEW($$,0);
     }
   | IDENT TK_ASGN expr
     {
 	cclerical_id_t v;
-	if (!lookup_var(p, $1, &v, &yylloc, 1, "variable"))
+	size_t scope_idx;
+	if (!lookup_var(p, $1, &v, &scope_idx, &yylloc, 1, "variable"))
 		YYERROR;
 	struct cclerical_decl *d = p->decls.data[v];
-	EXPR($3, 1U << d->value_type);
+	EXPR($3, 1U << d->value_type, 1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_ASGN);
 	$$->asgn.var = v;
 	$$->asgn.expr = $3;
-	EXPR_NEW($$);
+	$$->min_scope_asgn = scope_idx;
+	EXPR_NEW($$,0);
     }
-  | TK_SKIP { EXPR_NEW($$ = cclerical_expr_create(CCLERICAL_EXPR_SKIP)); }
+  | TK_SKIP { EXPR_NEW($$ = cclerical_expr_create(CCLERICAL_EXPR_SKIP),0); }
   | TK_WHILE pure_expr TK_DO expr
     {
-	EXPR($2, 1U << CCLERICAL_TYPE_BOOL);
+	EXPR($2, 1U << CCLERICAL_TYPE_BOOL, 1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_WHILE);
 	$$->loop.cond = $2;
 	$$->loop.body = $4;
-	EXPR_NEW($$);
+	EXPR_NEW($$,0);
     }
 
 var_init_list
@@ -392,14 +395,14 @@ fun_call_params
 cases
   : pure_expr TK_RDARROW expr
     {
-	EXPR($1, 1U << CCLERICAL_TYPE_BOOL);
+	EXPR($1, 1U << CCLERICAL_TYPE_BOOL, 1);
 	cclerical_vector_init(&$$);
 	cclerical_vector_add(&$$, $1);
 	cclerical_vector_add(&$$, $3);
     }
   | cases TK_BARS pure_expr TK_RDARROW expr
     {
-	EXPR($3, 1U << CCLERICAL_TYPE_BOOL);
+	EXPR($3, 1U << CCLERICAL_TYPE_BOOL, 1);
 	$$ = $1;
 	cclerical_vector_add(&$$, $3);
 	cclerical_vector_add(&$$, $5);
@@ -456,13 +459,13 @@ static void logmsg(const YYLTYPE *locp, const char *file, int lineno,
 }
 
 static int lookup_var(struct cclerical_parser *p, char *id,
-                      cclerical_id_t *v, YYLTYPE *locp, int rw,
-                      const char *id_desc)
+                      cclerical_id_t *v, size_t *scope_idx, YYLTYPE *locp,
+                      int rw, const char *id_desc)
 {
-	int r = cclerical_parser_var_lookup(p, id, v, rw);
+	int r = cclerical_parser_var_lookup(p, id, v, scope_idx, rw);
 	if (!r) {
 		ERROR(locp, "%s '%s' is %s in this context", id_desc, id,
-		      rw && cclerical_parser_var_lookup(p, id, v, 0)
+		      rw && cclerical_parser_var_lookup(p, id, v, NULL, 0)
 		      ? "read-only" : "not defined");
 		free(id);
 	}
@@ -527,16 +530,55 @@ static int is_arith_op(enum cclerical_op op)
 	return -1;
 }
 
+static const char *const OP_STRS[] = {
+	[CCLERICAL_OP_NEG] = "neg",
+	[CCLERICAL_OP_NOT] = "not",
+	[CCLERICAL_OP_AND] = "and",
+	[CCLERICAL_OP_OR]  = "or",
+	[CCLERICAL_OP_ADD] = "add",
+	[CCLERICAL_OP_SUB] = "sub",
+	[CCLERICAL_OP_MUL] = "mul",
+	[CCLERICAL_OP_DIV] = "div",
+	[CCLERICAL_OP_EXP] = "exp",
+	[CCLERICAL_OP_LT]  = "lt",
+	[CCLERICAL_OP_GT]  = "gt",
+	[CCLERICAL_OP_NE]  = "ne",
+};
+
+static int is_pure(const struct cclerical_parser *p,
+                   const struct cclerical_expr *e)
+{
+	return cclerical_expr_is_pure(e, p->scopes.valid);
+}
+
+#define MIN(a,b)	((a) < (b) ? (a) : (b))
+
 static int expr_type(const struct cclerical_parser *p,
                      const struct cclerical_expr *e, YYLTYPE *locp,
-                     enum cclerical_type *res)
+                     enum cclerical_type *res, size_t *res_min_scope_asgn)
 {
 	enum cclerical_type expr_t = CCLERICAL_TYPE_UNIT; /* silence uninit-use warning */
+	size_t min_scope_asgn = SIZE_MAX;
 	switch (e->type) {
 	case CCLERICAL_EXPR_OP: {
 		cclerical_type_set_t arg_t = 1U << e->op.arg1->result_type;
-		if (!cclerical_op_is_unary(e->op.op))
-			arg_t |= 1U << e->op.arg2->result_type;
+		if (!is_pure(p, e->op.arg1)) {
+			ERROR(locp, "impure expression as %soperand to %s",
+			      cclerical_op_is_unary(e->op.op) ? "" : "first ",
+			      OP_STRS[e->op.op]);
+			return 0;
+		}
+		min_scope_asgn = e->op.arg1->min_scope_asgn;
+		if (!cclerical_op_is_unary(e->op.op)) {
+			const struct cclerical_expr *b = e->op.arg2;
+			arg_t |= 1U << b->result_type;
+			if (!is_pure(p, b)) {
+				ERROR(locp, "impure expression as second "
+				            "operand to %s", OP_STRS[e->op.op]);
+				return 0;
+			}
+			min_scope_asgn = MIN(min_scope_asgn, b->min_scope_asgn);
+		}
 		if (arg_t & (1U << CCLERICAL_TYPE_UNIT)) {
 			ERROR(locp, "operand of Unit type");
 			return 0;
@@ -556,13 +598,18 @@ static int expr_type(const struct cclerical_parser *p,
 	}
 	case CCLERICAL_EXPR_LIM:
 		expr_t = e->lim.seq->result_type;
+		if (!is_pure(p, e->lim.seq)) {
+			ERROR(locp, "limit expression is not pure");
+			return 0;
+		}
+		min_scope_asgn = e->lim.seq->min_scope_asgn;
 		switch (expr_t) {
 		case CCLERICAL_TYPE_UNIT:
-			ERROR(locp, "limit expression of Unit type\n");
+			ERROR(locp, "limit expression of Unit type");
 			return 0;
 		case CCLERICAL_TYPE_BOOL:
 		case CCLERICAL_TYPE_INT:
-			WARN(locp, "limit expression of %s type\n",
+			WARN(locp, "limit expression of %s type",
 			     CCLERICAL_TYPE_STR[expr_t]);
 			break;
 		case CCLERICAL_TYPE_REAL:
@@ -572,8 +619,14 @@ static int expr_type(const struct cclerical_parser *p,
 	case CCLERICAL_EXPR_CASE: {
 		cclerical_type_set_t arg_t = 0;
 		for (size_t i=0; i<e->cases.valid; i+=2) {
+			const struct cclerical_expr *b = e->cases.data[i];
+			if (!is_pure(p, b)) {
+				ERROR(locp, "impure condition in case %zu", i);
+				return 0;
+			}
 			const struct cclerical_expr *f = e->cases.data[i+1];
 			arg_t |= 1U << f->result_type;
+			min_scope_asgn = MIN(min_scope_asgn, f->min_scope_asgn);
 		}
 		if (!unique_t(arg_t, &expr_t)) {
 			ERROR(locp, "mixed-type case expression: 0x%x", arg_t);
@@ -583,10 +636,17 @@ static int expr_type(const struct cclerical_parser *p,
 	}
 	case CCLERICAL_EXPR_IF: {
 		cclerical_type_set_t arg_t = 0;
+		if (!is_pure(p, e->branch.cond)) {
+			ERROR(locp, "impure condition in if command");
+			return 0;
+		}
+		min_scope_asgn = e->branch.if_true->min_scope_asgn;
 		arg_t |= 1U << e->branch.if_true->result_type;
-		if (e->branch.if_false)
-			arg_t |= 1U << e->branch.if_false->result_type;
-		else
+		if (e->branch.if_false) {
+			const struct cclerical_expr *f = e->branch.if_false;
+			arg_t |= 1U << f->result_type;
+			min_scope_asgn = MIN(min_scope_asgn, f->min_scope_asgn);
+		} else
 			arg_t |= 1U << CCLERICAL_TYPE_UNIT;
 		if (!unique_t(arg_t, &expr_t)) {
 			ERROR(locp, "mixed-type if expression: 0x%x", arg_t);
@@ -596,61 +656,99 @@ static int expr_type(const struct cclerical_parser *p,
 	}
 	case CCLERICAL_EXPR_CNST:
 		expr_t = e->cnst.type;
+		/* no assignments; min_scope_asgn = SIZE_MAX */
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
 		expr_t = e->decl_asgn.prog->result_type;
+		min_scope_asgn = e->decl_asgn.prog->min_scope_asgn;
+		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
+			cclerical_id_t v = (uintptr_t)e->decl_asgn.inits.data[i];
+			const struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
+			if (!is_pure(p, f)) {
+				const struct cclerical_decl *d = p->decls.data[v];
+				ERROR(locp, "impure expression in "
+				            "initialization of variable %s\n",
+				      d->id);
+				return 0;
+			}
+		}
 		break;
 	case CCLERICAL_EXPR_VAR: {
 		const struct cclerical_decl *v = p->decls.data[e->var];
 		expr_t = v->value_type;
+		/* no assignments; min_scope_asgn = SIZE_MAX */
 		break;
 	}
 	case CCLERICAL_EXPR_FUN_CALL: {
 		const struct cclerical_decl *f = p->decls.data[e->fun_call.fun];
+		const struct cclerical_vector *a = &e->fun_call.params;
+		for (size_t i=0; i<a->valid; i++) {
+			const struct cclerical_expr *g = a->data[i];
+			if (!is_pure(p, g)) {
+				ERROR(locp, "impure expression for argument "
+				            "%zu in call to '%s'", i, f->id);
+				return 0;
+			}
+		}
 		expr_t = f->value_type;
+		/* all sub-expressions are pure, function is pure;
+		 * min_scope_asgn = SIZE_MAX */
 		break;
 	}
 	case CCLERICAL_EXPR_ASGN:
-	case CCLERICAL_EXPR_SKIP:
-	case CCLERICAL_EXPR_WHILE:
+		if (!is_pure(p, e->asgn.expr)) {
+			ERROR(locp, "impure expression in assignment");
+			return 0;
+		}
 		expr_t = CCLERICAL_TYPE_UNIT;
+		/* e->asgn_to_min_scope_asgn has already been initialized */
+		min_scope_asgn = e->min_scope_asgn;
+		break;
+	case CCLERICAL_EXPR_SKIP:
+		expr_t = CCLERICAL_TYPE_UNIT;
+		/* no assignments; min_scope_asgn = SIZE_MAX */
+		break;
+	case CCLERICAL_EXPR_WHILE:
+		if (!is_pure(p, e->loop.cond)) {
+			ERROR(locp, "impure condition in while-loop");
+			return 0;
+		}
+		expr_t = CCLERICAL_TYPE_UNIT;
+		min_scope_asgn = e->loop.body->min_scope_asgn;
 		break;
 	case CCLERICAL_EXPR_SEQ:
 		for (size_t i=0; i+1<e->seq->stmts.valid; i++) {
 			const struct cclerical_stmt *s = e->seq->stmts.data[i];
 			const struct cclerical_expr *f = s->expr;
+			min_scope_asgn = MIN(min_scope_asgn, f->min_scope_asgn);
 			if (f->result_type != CCLERICAL_TYPE_UNIT)
 				WARN(&f->source_loc, "initial expr in sequence "
-				                     "has non-Unit type %s\n",
+				                     "has non-Unit type %s",
 				     CCLERICAL_TYPE_STR[f->result_type]);
 		}
 		expr_t = cclerical_prog_type(e->seq);
 		break;
 	}
 	*res = expr_t;
+	*res_min_scope_asgn = min_scope_asgn;
 	return 1;
-}
-
-
-static int expr_super_types(const struct cclerical_parser *p,
-                            const struct cclerical_expr *e, YYLTYPE *locp,
-                            cclerical_type_set_t *res)
-{
-	enum cclerical_type t;
-	int r = expr_type(p, e, locp, &t);
-	if (r)
-		*res = super_types(t);
-	return r;
 }
 
 static struct cclerical_expr * expr(struct cclerical_parser *p,
                                     struct cclerical_expr *e,
                                     cclerical_type_set_t forced,
-                                    YYLTYPE *locp)
+                                    int required_pure, YYLTYPE *locp)
 {
-	cclerical_type_set_t convertible_to;
-	if (!expr_super_types(p, e, locp, &convertible_to))
+	enum cclerical_type t;
+	size_t min_scope_asgn;
+	if (!expr_type(p, e, locp, &t, &min_scope_asgn))
 		return NULL;
+	e->min_scope_asgn = min_scope_asgn;
+	if (required_pure && !is_pure(p, e)) {
+		ERROR(locp, "expression required to be pure in this context");
+		return NULL;
+	}
+	cclerical_type_set_t convertible_to = super_types(t);
 	cclerical_type_set_t common = convertible_to & forced;
 	if (!common) {
 		ERROR(locp, "no common type in expr-super-types 0x%x and "
@@ -667,10 +765,10 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 }
 
 static struct cclerical_expr * expr_new(struct cclerical_parser *p,
-                                       struct cclerical_expr *e,
-                                       YYLTYPE *locp)
+                                        struct cclerical_expr *e,
+                                        int req_pure, YYLTYPE *locp)
 {
-	if (expr(p, e, TYPES_ALL, locp))
+	if (expr(p, e, TYPES_ALL, req_pure, locp))
 		return e;
 	free(e);
 	return NULL;
@@ -681,7 +779,7 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
                                         struct cclerical_vector params)
 {
 	cclerical_id_t v;
-	if (!lookup_var(p, id, &v, locp, 0, "function"))
+	if (!lookup_var(p, id, &v, NULL, locp, 0, "function"))
 		return NULL;
 	struct cclerical_decl *d = p->decls.data[v];
 	if (d->type != CCLERICAL_DECL_FUN) {

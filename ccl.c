@@ -26,8 +26,9 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		[CCLERICAL_EXPR_WHILE    ] = "while",
 		[CCLERICAL_EXPR_SEQ      ] = "sequence",
 	};
-	fprintf(stderr, "%*sexpr: %s of type %s\n", lvl, "", st[e->type],
-	        CCLERICAL_TYPE_STR[e->result_type]);
+	fprintf(stderr, "%*sexpr: %s of type %s, min_asgn_scope: %zu\n",
+	        lvl, "", st[e->type], CCLERICAL_TYPE_STR[e->result_type],
+	        e->min_scope_asgn);
 	switch (e->type) {
 	case CCLERICAL_EXPR_DECL_ASGN:
 		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {

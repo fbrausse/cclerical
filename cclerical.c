@@ -182,7 +182,7 @@ void cclerical_parser_init(struct cclerical_parser *p)
 
 static int lookup(const struct cclerical_parser *p,
                   size_t scope_idx, const char *id,
-                  cclerical_id_t *ridx, int rw)
+                  cclerical_id_t *ridx, size_t *rscope, int rw)
 {
 	const struct cclerical_parser_scope *s = p->scopes.data[scope_idx];
 	if (!rw || !s->this_read_only) {
@@ -193,25 +193,27 @@ static int lookup(const struct cclerical_parser *p,
 			if (!strcmp(v->id, id)) {
 				if (ridx)
 					*ridx = idx;
+				if (rscope)
+					*rscope = scope_idx;
 				return 1;
 			}
 		}
 	}
 	return (!scope_idx || (rw && s->prev_read_only))
-	       ? 0 : lookup(p, scope_idx-1, id, ridx, rw);
+	       ? 0 : lookup(p, scope_idx-1, id, ridx, rscope, rw);
 }
 
 int cclerical_parser_var_lookup(struct cclerical_parser *p, const char *id,
-                                cclerical_id_t *v, int rw)
+                                cclerical_id_t *v, size_t *scope_idx, int rw)
 {
-	return p->scopes.valid && lookup(p, p->scopes.valid-1, id, v, rw);
+	return p->scopes.valid && lookup(p, p->scopes.valid-1, id, v, scope_idx, rw);
 }
 
 int cclerical_parser_new_decl(struct cclerical_parser *p,
                               const struct cclerical_decl *decl,
                               cclerical_id_t *v)
 {
-	if (cclerical_parser_var_lookup(p, decl->id, v, 0))
+	if (cclerical_parser_var_lookup(p, decl->id, v, NULL, 0))
 		return 0;
 	size_t idx = p->decls.valid;
 	cclerical_vector_add(&p->decls, memdup(decl, sizeof(*decl)));
