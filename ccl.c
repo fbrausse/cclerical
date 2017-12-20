@@ -540,13 +540,6 @@ static struct compiler {
 	{ NULL, NULL, }
 };
 
-struct cclerical_input {
-	const char *name;
-	void *data;
-	size_t size;
-	void (*fini)(struct cclerical_input *);
-};
-
 static int compile_t17(const struct cclerical_input *in,
                        const struct compiler *cc, int dump_parse_tree)
 {
@@ -554,7 +547,7 @@ static int compile_t17(const struct cclerical_input *in,
 	yyscan_t scanner;
 	cclerical_lex_init(&scanner);
 	YY_BUFFER_STATE st = cclerical__scan_bytes(in->data, in->size, scanner);
-	cclerical_parser_init(&p);
+	cclerical_parser_init(&p, in);
 	int r = cclerical_parse(&p, scanner);
 	struct cclerical_prog *cp = p.prog;
 	p.prog = NULL;

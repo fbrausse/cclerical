@@ -163,10 +163,12 @@ void cclerical_scope_fini(const struct cclerical_scope *s)
 
 /* -------------------------------------------------------------------------- */
 
-void cclerical_parser_init(struct cclerical_parser *p)
+void cclerical_parser_init(struct cclerical_parser *p,
+                           const struct cclerical_input *input)
 {
 	memset(p, 0, sizeof(*p));
 	cclerical_parser_open_scope(p, 0, 0);
+	p->input = input;
 }
 
 static int lookup(const struct cclerical_parser *p,

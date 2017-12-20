@@ -11,6 +11,13 @@
 extern "C" {
 #endif
 
+struct cclerical_input {
+	const char *name;
+	void *data;
+	size_t size;
+	void (*fini)(struct cclerical_input *);
+};
+
 struct cclerical_source_loc {
 	int first_line, first_column;
 	int last_line, last_column;
@@ -228,9 +235,11 @@ struct cclerical_parser {
 	struct cclerical_vector scopes; /* of struct cclerical_parser_scope */
 	struct cclerical_prog *prog;
 	struct cclerical_vector decls; /* of struct cclerical_decl * */
+	const struct cclerical_input *input;
 };
 
-void cclerical_parser_init(struct cclerical_parser *p);
+void cclerical_parser_init(struct cclerical_parser *p,
+                           const struct cclerical_input *input);
 
 int  cclerical_parser_var_lookup(struct cclerical_parser *p, const char *id,
                                  cclerical_id_t *v, size_t *scope_idx, int rw);

@@ -14,13 +14,14 @@ typedef struct cclerical_source_loc YYLTYPE;
 #include "cclerical.tab.h"
 #include "cclerical.lex.h"
 
-static void logmsg(const YYLTYPE *locp, const char *file, int lineno,
+static void logmsg(const struct cclerical_parser *p, const YYLTYPE *locp,
+                   const char *file, int lineno,
                    const char *msg_type, const char *fmt, ...);
 
-#define ERROR(locp,...) logmsg(locp,__FILE__,__LINE__,"error",__VA_ARGS__)
-#define WARN(locp,...)  logmsg(locp,__FILE__,__LINE__,"warning",__VA_ARGS__)
+#define ERROR(p,locp,...) logmsg(p,locp,__FILE__,__LINE__,"error",__VA_ARGS__)
+#define WARN(p,locp,...)  logmsg(p,locp,__FILE__,__LINE__,"warning",__VA_ARGS__)
 
-#define cclerical_error(locp,p,scanner,...) ERROR(locp, __VA_ARGS__)
+#define cclerical_error(locp,p,scanner,...) ERROR(p, locp, __VA_ARGS__)
 
 static int lookup_var(struct cclerical_parser *p, char *id,
                       cclerical_id_t *v, size_t *scope_idx, YYLTYPE *locp,
@@ -432,7 +433,8 @@ static void print_loc(FILE *out, const YYLTYPE *locp)
 	}
 }
 
-static void logmsg(const YYLTYPE *locp, const char *file, int lineno,
+static void logmsg(const struct cclerical_parser *p, const YYLTYPE *locp,
+                   const char *file, int lineno,
                    const char *msg_type, const char *fmt, ...)
 {
 #ifndef NDEBUG
@@ -441,7 +443,7 @@ static void logmsg(const YYLTYPE *locp, const char *file, int lineno,
 	(void)file;
 	(void)lineno;
 #endif
-	fprintf(stderr, "%s at ", msg_type);
+	fprintf(stderr, "%s: %s at ", p->input->name, msg_type);
 	print_loc(stderr, locp);
 	fprintf(stderr, ": ");
 	va_list ap;
@@ -457,7 +459,7 @@ static int lookup_var(struct cclerical_parser *p, char *id,
 {
 	int r = cclerical_parser_var_lookup(p, id, v, scope_idx, rw);
 	if (!r) {
-		ERROR(locp, "%s '%s' is %s in this context", id_desc, id,
+		ERROR(p, locp, "%s '%s' is %s in this context", id_desc, id,
 		      rw && cclerical_parser_var_lookup(p, id, v, NULL, 0)
 		      ? "read-only" : "not defined");
 		free(id);
@@ -565,14 +567,14 @@ static int expr_type(const struct cclerical_parser *p,
 		cclerical_type_set_t arg_t = 0;
 		for (unsigned i=0; i<cclerical_op_arity(e->op.op); i++) {
 			if (!is_pure(p, e->op.args[i])) {
-				ERROR(locp,
+				ERROR(p, locp,
 				      "impure expression as %s operand to %s",
 				      CARDINALS[i], OP_STRS[e->op.op]);
 				return 0;
 			}
 			enum cclerical_type t = e->op.args[i]->result_type;
 			if (t == CCLERICAL_TYPE_UNIT) {
-				ERROR(locp, "%s operand to %s of Unit type",
+				ERROR(p, locp, "%s operand to %s of Unit type",
 				      CARDINALS[i], OP_STRS[e->op.op]);
 				return 0;
 			}
@@ -582,13 +584,13 @@ static int expr_type(const struct cclerical_parser *p,
 		 * min_scope_asgn = SIZE_MAX */
 		if ((e->op.op == CCLERICAL_OP_LT || e->op.op == CCLERICAL_OP_GT)
 		    && (arg_t & (1U << CCLERICAL_TYPE_BOOL))) {
-			ERROR(locp, "comparison with Boolean type");
+			ERROR(p, locp, "comparison with Boolean type");
 			return 0;
 		}
 		if (!is_arith_op(e->op.op)) {
 			expr_t = CCLERICAL_TYPE_BOOL;
 		} else if (!unique_t(arg_t, &expr_t)) {
-			ERROR(locp, "mixed-type op expression");
+			ERROR(p, locp, "mixed-type op expression");
 			return 0;
 		}
 		break;
@@ -596,17 +598,17 @@ static int expr_type(const struct cclerical_parser *p,
 	case CCLERICAL_EXPR_LIM:
 		expr_t = e->lim.seq->result_type;
 		if (!is_pure(p, e->lim.seq)) {
-			ERROR(locp, "limit expression is not pure");
+			ERROR(p, locp, "limit expression is not pure");
 			return 0;
 		}
 		min_scope_asgn = e->lim.seq->min_scope_asgn;
 		switch (expr_t) {
 		case CCLERICAL_TYPE_UNIT:
-			ERROR(locp, "limit expression of Unit type");
+			ERROR(p, locp, "limit expression of Unit type");
 			return 0;
 		case CCLERICAL_TYPE_BOOL:
 		case CCLERICAL_TYPE_INT:
-			WARN(locp, "limit expression of %s type",
+			WARN(p, locp, "limit expression of %s type",
 			     CCLERICAL_TYPE_STR[expr_t]);
 			break;
 		case CCLERICAL_TYPE_REAL:
@@ -618,7 +620,8 @@ static int expr_type(const struct cclerical_parser *p,
 		for (size_t i=0; i<e->cases.valid; i+=2) {
 			const struct cclerical_expr *b = e->cases.data[i];
 			if (!is_pure(p, b)) {
-				ERROR(locp, "impure condition in case %zu", i);
+				ERROR(p, locp, "impure condition in case %zu",
+				      i);
 				return 0;
 			}
 			const struct cclerical_expr *f = e->cases.data[i+1];
@@ -626,7 +629,8 @@ static int expr_type(const struct cclerical_parser *p,
 			min_scope_asgn = MIN(min_scope_asgn, f->min_scope_asgn);
 		}
 		if (!unique_t(arg_t, &expr_t)) {
-			ERROR(locp, "mixed-type case expression: 0x%x", arg_t);
+			ERROR(p, locp, "mixed-type case expression: 0x%x",
+			      arg_t);
 			return 0;
 		}
 		break;
@@ -634,7 +638,7 @@ static int expr_type(const struct cclerical_parser *p,
 	case CCLERICAL_EXPR_IF: {
 		cclerical_type_set_t arg_t = 0;
 		if (!is_pure(p, e->branch.cond)) {
-			ERROR(locp, "impure condition in if command");
+			ERROR(p, locp, "impure condition in if command");
 			return 0;
 		}
 		min_scope_asgn = e->branch.if_true->min_scope_asgn;
@@ -646,7 +650,7 @@ static int expr_type(const struct cclerical_parser *p,
 		} else
 			arg_t |= 1U << CCLERICAL_TYPE_UNIT;
 		if (!unique_t(arg_t, &expr_t)) {
-			ERROR(locp, "mixed-type if expression: 0x%x", arg_t);
+			ERROR(p, locp, "mixed-type if expression: 0x%x", arg_t);
 			return 0;
 		}
 		break;
@@ -663,8 +667,8 @@ static int expr_type(const struct cclerical_parser *p,
 			cclerical_id_t v = (uintptr_t)inits->data[i];
 			if (!is_pure(p, inits->data[i+1])) {
 				const struct cclerical_decl *d = p->decls.data[v];
-				ERROR(locp, "impure expression in "
-				            "initialization of variable %s\n",
+				ERROR(p, locp, "impure expression in "
+				               "initialization of variable %s\n",
 				      d->id);
 				return 0;
 			}
@@ -683,8 +687,8 @@ static int expr_type(const struct cclerical_parser *p,
 		for (size_t i=0; i<a->valid; i++) {
 			const struct cclerical_expr *g = a->data[i];
 			if (!is_pure(p, g)) {
-				ERROR(locp, "impure expression for argument "
-				            "%zu in call to '%s'", i, f->id);
+				ERROR(p, locp, "impure expression for argument "
+				               "%zu in call to '%s'", i, f->id);
 				return 0;
 			}
 		}
@@ -695,7 +699,7 @@ static int expr_type(const struct cclerical_parser *p,
 	}
 	case CCLERICAL_EXPR_ASGN:
 		if (!is_pure(p, e->asgn.expr)) {
-			ERROR(locp, "impure expression in assignment");
+			ERROR(p, locp, "impure expression in assignment");
 			return 0;
 		}
 		expr_t = CCLERICAL_TYPE_UNIT;
@@ -708,7 +712,7 @@ static int expr_type(const struct cclerical_parser *p,
 		break;
 	case CCLERICAL_EXPR_WHILE:
 		if (!is_pure(p, e->loop.cond)) {
-			ERROR(locp, "impure condition in while-loop");
+			ERROR(p, locp, "impure condition in while-loop");
 			return 0;
 		}
 		expr_t = CCLERICAL_TYPE_UNIT;
@@ -719,8 +723,9 @@ static int expr_type(const struct cclerical_parser *p,
 			const struct cclerical_expr *f = e->seq->exprs.data[i];
 			min_scope_asgn = MIN(min_scope_asgn, f->min_scope_asgn);
 			if (f->result_type != CCLERICAL_TYPE_UNIT)
-				WARN(&f->source_loc, "initial expr in sequence "
-				                     "has non-Unit type %s",
+				WARN(p, &f->source_loc,
+				     "initial expr in sequence has non-Unit "
+				     "type %s",
 				     CCLERICAL_TYPE_STR[f->result_type]);
 		}
 		expr_t = cclerical_prog_type(e->seq);
@@ -742,18 +747,19 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 		return NULL;
 	e->min_scope_asgn = min_scope_asgn;
 	if (required_pure && !is_pure(p, e)) {
-		ERROR(locp, "expression required to be pure in this context");
+		ERROR(p, locp, "expression required to be pure in this context");
 		return NULL;
 	}
 	cclerical_type_set_t convertible_to = super_types(t);
 	cclerical_type_set_t common = convertible_to & forced;
 	if (!common) {
-		ERROR(locp, "no common type in expr-super-types 0x%x and "
-		            "forced types 0x%x", convertible_to, forced);
+		ERROR(p, locp,
+		      "no common type in expr-super-types 0x%x and forced "
+		      "types 0x%x", convertible_to, forced);
 		return NULL;
 	}
 	if (!max_sub_type(common, &e->result_type)) {
-		ERROR(locp, "no common sub-type in 0x%x for complete expr",
+		ERROR(p, locp, "no common sub-type in 0x%x for complete expr",
 		      common);
 		return NULL;
 	}
@@ -781,12 +787,12 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 	free(id);
 	const struct cclerical_decl *d = p->decls.data[v];
 	if (d->type != CCLERICAL_DECL_FUN) {
-		ERROR(locp, "'%s' does not identify a function", d->id);
+		ERROR(p, locp, "'%s' does not identify a function", d->id);
 		return NULL;
 	}
 	if (d->fun.arguments.valid != params.valid) {
-		ERROR(locp, "in function-call to %s: number of arguments "
-		            "mismatch: passed: %zu, declared with: %zu",
+		ERROR(p, locp, "in function-call to %s: number of arguments "
+		               "mismatch: passed: %zu, declared with: %zu",
 		      d->id, params.valid, d->fun.arguments.valid);
 		return NULL;
 	}
@@ -802,10 +808,11 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 		// if ((1U << arg_type) & super_types(e->result_type)) /* no implicit casts! */
 		if (arg_type == e->result_type)
 			continue;
-		ERROR(locp, "in function-call to %s: type mismatch of argument "
-		            "%zu: exprected %s, expression is of type %s",
-		     d->id, i, CCLERICAL_TYPE_STR[arg_type],
-		     CCLERICAL_TYPE_STR[e->result_type]);
+		ERROR(p, locp,
+		      "in function-call to %s: type mismatch of argument %zu: "
+		      "exprected %s, expression is of type %s",
+		      d->id, i, CCLERICAL_TYPE_STR[arg_type],
+		      CCLERICAL_TYPE_STR[e->result_type]);
 		return NULL;
 	}
 	struct cclerical_expr *e = cclerical_expr_create(CCLERICAL_EXPR_FUN_CALL);
@@ -823,8 +830,9 @@ static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
 	};
 	if (!cclerical_parser_new_decl(p, d, v)) {
 		struct cclerical_decl *e = p->decls.data[*v];
-		ERROR(&d->source_loc, "error declaring %s '%s'", decl_desc, d->id);
-		ERROR(&e->source_loc,
+		ERROR(p, &d->source_loc, "error declaring %s '%s'",
+		      decl_desc, d->id);
+		ERROR(p, &e->source_loc,
 		      "first declaration of a %s of this name was here",
 		      type_str[e->type]);
 		cclerical_decl_fini(d);
