@@ -169,47 +169,47 @@ static const char *const CCLERICAL_CPP_BOPS[] = {
 
 typedef struct cclerical_vector vec_t;
 
-static void export_irram_var_decl(const vec_t *decls, cclerical_id_t ai, int const_ref)
+static void export_irram_var_decl(FILE *out, const vec_t *decls, cclerical_id_t ai, int const_ref)
 {
 	struct cclerical_decl *a = decls->data[ai];
-	printf("%s%s %s%s%zu /* clerical: %s */",
-	       const_ref ? "const " : "", CCLERICAL_iRRAM_TYPES[a->value_type],
-	       const_ref ? "&" : "", CCL_PREFIX, ai, a->id);
+	fprintf(out, "%s%s %s%s%zu /* clerical: %s */",
+	        const_ref ? "const " : "", CCLERICAL_iRRAM_TYPES[a->value_type],
+	        const_ref ? "&" : "", CCL_PREFIX, ai, a->id);
 }
 
-static void export_irram_fun_decl(const vec_t *decls, cclerical_id_t i)
+static void export_irram_fun_decl(FILE *out, const vec_t *decls, cclerical_id_t i)
 {
 	struct cclerical_decl *d = decls->data[i];
-	if (d->fun.body) {
-		printf("/* clerical fun: %s */\n", d->id);
-		printf("static %s %s%zu(",
+	if (!cclerical_decl_fun_is_external(d)) {
+		fprintf(out, "/* clerical fun: %s */\n", d->id);
+		fprintf(out, "static %s %s%zu(",
 		       CCLERICAL_iRRAM_TYPES[d->value_type], CCL_PREFIX, i);
 		for (size_t j=0; j<d->fun.arguments.valid; j++) {
 			cclerical_id_t ai = (uintptr_t)d->fun.arguments.data[j];
-			export_irram_var_decl(decls, ai, 0);
+			export_irram_var_decl(out, decls, ai, 0);
 			if (j+1 < d->fun.arguments.valid)
-				printf(", ");
+				fprintf(out, ", ");
 		}
-		printf(")");
+		fprintf(out, ")");
 	} else {
-		printf("/* clerical external fun #%zu: %s */\n", i, d->id);
-		printf("namespace cclerical {\n");
-		printf("%s %s(", CCLERICAL_iRRAM_TYPES[d->value_type], d->id);
+		fprintf(out, "/* clerical external fun #%zu: %s */\n", i, d->id);
+		fprintf(out, "namespace cclerical {\n");
+		fprintf(out, "%s %s(", CCLERICAL_iRRAM_TYPES[d->value_type], d->id);
 		for (size_t j=0; j<d->fun.arguments.valid; j++) {
 			enum cclerical_type t = (uintptr_t)d->fun.arguments.data[j];
-			printf("%s%s", j ? ", " : "", CCLERICAL_iRRAM_TYPES[t]);
+			fprintf(out, "%s%s", j ? ", " : "", CCLERICAL_iRRAM_TYPES[t]);
 		}
-		printf(");\n}");
+		fprintf(out, ");\n}");
 	}
 }
 
-static void cclprintf(int lvl, const char *fmt, ...)
+static void cclprintf(FILE *f, int lvl, const char *fmt, ...)
 {
 	while (lvl--)
-		printf("\t");
+		fprintf(f, "\t");
 	va_list ap;
 	va_start(ap,fmt);
-	vprintf(fmt, ap);
+	vfprintf(f, fmt, ap);
 	va_end(ap);
 }
 
@@ -292,7 +292,7 @@ static void visit_varrefs_prog(const vec_t *decls, const struct cclerical_prog *
 	}
 }
 
-static void export_irram_prog(const vec_t *decls,
+static void export_irram_prog(FILE *out, const vec_t *decls,
                               const struct cclerical_prog *p, int lvl);
 
 struct visit_prev_scope_args {
@@ -314,7 +314,7 @@ static void visit_prev_scope(const vec_t *decls, cclerical_id_t v,
 	cclerical_vector_add(a->vars, (void *)(uintptr_t)v);
 }
 
-static void export_irram_expr(const vec_t *decls,
+static void export_irram_expr(FILE *out, const vec_t *decls,
                               const struct cclerical_expr *e, int lvl)
 {
 	switch (e->type) {
@@ -323,214 +323,215 @@ static void export_irram_expr(const vec_t *decls,
 		case CCLERICAL_TYPE_UNIT:
 			abort();
 		case CCLERICAL_TYPE_BOOL:
-			cclprintf(0, "%s", e->cnst.boolean ? "true" : "false");
+			cclprintf(out, 0, "%s", e->cnst.boolean ? "true" : "false");
 			break;
 		case CCLERICAL_TYPE_INT:
 		case CCLERICAL_TYPE_REAL:
-			cclprintf(0, "%s(\"%s\")",
+			cclprintf(out, 0, "%s(\"%s\")",
 			          CCLERICAL_iRRAM_TYPES[e->cnst.type],
 			          e->cnst.numeric.str);
 			break;
 		}
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
-		cclprintf(0, "[&](");
+		cclprintf(out, 0, "[&](");
 		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
 			cclerical_id_t v = (uintptr_t)e->decl_asgn.inits.data[i];
-			export_irram_var_decl(decls, v, 0);
+			export_irram_var_decl(out, decls, v, 0);
 			if (i+2 < e->decl_asgn.inits.valid)
-				cclprintf(0, ", ");
+				cclprintf(out, 0, ", ");
 		}
-		cclprintf(0, "){\n");
-		cclprintf(lvl+1, "%s", e->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
-		export_irram_expr(decls, e->decl_asgn.body, lvl+1);
-		cclprintf(0, ";\n");
-		cclprintf(lvl, "}(");
+		cclprintf(out, 0, "){\n");
+		cclprintf(out, lvl+1, "%s", e->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+		export_irram_expr(out, decls, e->decl_asgn.body, lvl+1);
+		cclprintf(out, 0, ";\n");
+		cclprintf(out, lvl, "}(");
 		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
 			const struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
-			export_irram_expr(decls, f, lvl+1);
+			export_irram_expr(out, decls, f, lvl+1);
 			if (i+2 < e->decl_asgn.inits.valid)
-				cclprintf(0, ", ");
+				cclprintf(out, 0, ", ");
 		}
-		cclprintf(0, ")");
+		cclprintf(out, 0, ")");
 		break;
 	case CCLERICAL_EXPR_VAR:
-		cclprintf(0, "%s%zu", CCL_PREFIX, e->var);
+		cclprintf(out, 0, "%s%zu", CCL_PREFIX, e->var);
 		break;
 	case CCLERICAL_EXPR_FUN_CALL: {
 		const struct cclerical_decl *d = decls->data[e->fun_call.fun];
 		if (d->fun.body)
-			cclprintf(0, "%s%zu(", CCL_PREFIX, e->fun_call.fun);
+			cclprintf(out, 0, "%s%zu(", CCL_PREFIX, e->fun_call.fun);
 		else
-			cclprintf(0, "cclerical::%s(", d->id);
+			cclprintf(out, 0, "cclerical::%s(", d->id);
 		for (size_t i=0; i<e->fun_call.params.valid; i++) {
-			export_irram_expr(decls, e->fun_call.params.data[i], lvl);
-			cclprintf(0, i+1 < e->fun_call.params.valid ? ", " : ")");
+			export_irram_expr(out, decls, e->fun_call.params.data[i], lvl);
+			cclprintf(out, 0, i+1 < e->fun_call.params.valid ? ", " : ")");
 		}
 		break;
 	}
 	case CCLERICAL_EXPR_OP:
 		if (cclerical_op_is_unary(e->op.op)) {
-			cclprintf(0, "%s(", CCLERICAL_CPP_UOPS[e->op.op]);
-			export_irram_expr(decls, e->op.args[0], lvl);
-			cclprintf(0, ")");
+			cclprintf(out, 0, "%s(", CCLERICAL_CPP_UOPS[e->op.op]);
+			export_irram_expr(out, decls, e->op.args[0], lvl);
+			cclprintf(out, 0, ")");
 			break;
 		} else if (e->op.op == CCLERICAL_OP_EXP) {
-			cclprintf(0, "power((");
-			export_irram_expr(decls, e->op.args[0], lvl);
-			cclprintf(0, "), (");
-			export_irram_expr(decls, e->op.args[1], lvl);
-			cclprintf(0, "))");
+			cclprintf(out, 0, "power((");
+			export_irram_expr(out, decls, e->op.args[0], lvl);
+			cclprintf(out, 0, "), (");
+			export_irram_expr(out, decls, e->op.args[1], lvl);
+			cclprintf(out, 0, "))");
 		} else {
-			cclprintf(0, "(");
-			export_irram_expr(decls, e->op.args[0], lvl);
-			cclprintf(0, ") %s (", CCLERICAL_CPP_BOPS[e->op.op]);
-			export_irram_expr(decls, e->op.args[1], lvl);
-			cclprintf(0, ")");
+			cclprintf(out, 0, "(");
+			export_irram_expr(out, decls, e->op.args[0], lvl);
+			cclprintf(out, 0, ") %s (", CCLERICAL_CPP_BOPS[e->op.op]);
+			export_irram_expr(out, decls, e->op.args[1], lvl);
+			cclprintf(out, 0, ")");
 		}
 		break;
 	case CCLERICAL_EXPR_CASE:
 		if (e->cases.valid > 2*6)
 			DIE(2,"iRRAM backend does not support more than 6 cases\n");
-		cclprintf(0, "[&]{\n");
-		cclprintf(lvl+1, "switch (iRRAM::choose(");
+		cclprintf(out, 0, "[&]{\n");
+		cclprintf(out, lvl+1, "switch (iRRAM::choose(");
 		for (size_t i=0; i<e->cases.valid; i+=2) {
 			const struct cclerical_expr *f = e->cases.data[i];
-			export_irram_expr(decls, f, lvl+1);
+			export_irram_expr(out, decls, f, lvl+1);
 			if (i+2 < e->cases.valid)
-				cclprintf(0, ", ");
+				cclprintf(out, 0, ", ");
 		}
-		cclprintf(0, ")) {\n");
-		cclprintf(lvl+1, "default: abort();\n");
+		cclprintf(out, 0, ")) {\n");
+		cclprintf(out, lvl+1, "default: abort();\n");
 		for (size_t i=0; i<e->cases.valid; i+=2) {
 			const struct cclerical_expr *f = e->cases.data[i+1];
-			cclprintf(lvl+1, "case %zu:\n", i/2+1);
-			cclprintf(lvl+2, "%s", f->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
-			export_irram_expr(decls, f, lvl+2);
-			cclprintf(0, ";\n");
+			cclprintf(out, lvl+1, "case %zu:\n", i/2+1);
+			cclprintf(out, lvl+2, "%s", f->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+			export_irram_expr(out, decls, f, lvl+2);
+			cclprintf(out, 0, ";\n");
 			if (f->result_type == CCLERICAL_TYPE_UNIT)
-				cclprintf(lvl+2, "break;\n");
+				cclprintf(out, lvl+2, "break;\n");
 		}
-		cclprintf(lvl+1, "}\n");
-		cclprintf(lvl, "}()");
+		cclprintf(out, lvl+1, "}\n");
+		cclprintf(out, lvl, "}()");
 		break;
 	case CCLERICAL_EXPR_IF:
-		cclprintf(0, "[&]{\n");
-		cclprintf(lvl+1, "if (");
-		export_irram_expr(decls, e->branch.cond, lvl);
-		cclprintf(0, ") {\n");
-		cclprintf(lvl+2, "%s", e->branch.if_true->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
-		export_irram_expr(decls, e->branch.if_true, lvl+2);
-		cclprintf(0, ";\n");
-		cclprintf(lvl+1, "}\n");
+		cclprintf(out, 0, "[&]{\n");
+		cclprintf(out, lvl+1, "if (");
+		export_irram_expr(out, decls, e->branch.cond, lvl);
+		cclprintf(out, 0, ") {\n");
+		cclprintf(out, lvl+2, "%s", e->branch.if_true->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+		export_irram_expr(out, decls, e->branch.if_true, lvl+2);
+		cclprintf(out, 0, ";\n");
+		cclprintf(out, lvl+1, "}\n");
 		if (e->branch.if_false) {
-			cclprintf(lvl+1, "else {\n");
-			cclprintf(lvl+2, "%s", e->branch.if_false->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
-			export_irram_expr(decls, e->branch.if_false, lvl+2);
-			cclprintf(0, ";\n");
-			cclprintf(lvl+1, "}\n");
+			cclprintf(out, lvl+1, "else {\n");
+			cclprintf(out, lvl+2, "%s", e->branch.if_false->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+			export_irram_expr(out, decls, e->branch.if_false, lvl+2);
+			cclprintf(out, 0, ";\n");
+			cclprintf(out, lvl+1, "}\n");
 		}
-		cclprintf(lvl, "}()");
+		cclprintf(out, lvl, "}()");
 		break;
 	case CCLERICAL_EXPR_LIM: {
 		vec_t prev_scope_vars = CCLERICAL_VECTOR_INIT;
 		struct visit_prev_scope_args data = { &prev_scope_vars, e->lim.seq_idx };
 		visit_varrefs_expr(decls, e->lim.seq, visit_prev_scope, &data);
 
-		cclprintf(0, "iRRAM::limit([](int p");
+		cclprintf(out, 0, "iRRAM::limit([](int p");
 		for (size_t i=0; i<prev_scope_vars.valid; i++) {
-			cclprintf(0, ", ");
-			export_irram_var_decl(decls, (uintptr_t)prev_scope_vars.data[i], 1);
+			cclprintf(out, 0, ", ");
+			export_irram_var_decl(out, decls, (uintptr_t)prev_scope_vars.data[i], 1);
 		}
-		cclprintf(0, "){\n");
-		cclprintf(lvl+1, "");
-		export_irram_var_decl(decls, e->lim.seq_idx, 0);
-		cclprintf(0, " = -p;\n");
-		cclprintf(lvl+1, "%s", e->lim.seq->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
-		export_irram_expr(decls, e->lim.seq, lvl+1);
-		cclprintf(0, ";\n");
-		cclprintf(lvl, "}");
+		cclprintf(out, 0, "){\n");
+		cclprintf(out, lvl+1, "");
+		export_irram_var_decl(out, decls, e->lim.seq_idx, 0);
+		cclprintf(out, 0, " = -p;\n");
+		cclprintf(out, lvl+1, "%s", e->lim.seq->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+		export_irram_expr(out, decls, e->lim.seq, lvl+1);
+		cclprintf(out, 0, ";\n");
+		cclprintf(out, lvl, "}");
 		for (size_t i=0; i<prev_scope_vars.valid; i++) {
 			cclerical_id_t v = (uintptr_t)prev_scope_vars.data[i];
-			cclprintf(0, ", %s%zu", CCL_PREFIX, v);
+			cclprintf(out, 0, ", %s%zu", CCL_PREFIX, v);
 		}
-		cclprintf(0, ")");
+		cclprintf(out, 0, ")");
 
 		cclerical_vector_fini(&prev_scope_vars);
 		break;
 	}
 	/* these return Unit, no encapsulation into lambda-fun required */
 	case CCLERICAL_EXPR_WHILE:
-		cclprintf(0, "while (");
-		export_irram_expr(decls, e->loop.cond, lvl);
-		cclprintf(0, ") {\n");
-		cclprintf(lvl+1, "%s", e->loop.body->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
-		export_irram_expr(decls, e->loop.body, lvl+1);
-		cclprintf(0, ";\n");
-		cclprintf(lvl, "}");
+		cclprintf(out, 0, "while (");
+		export_irram_expr(out, decls, e->loop.cond, lvl);
+		cclprintf(out, 0, ") {\n");
+		cclprintf(out, lvl+1, "%s", e->loop.body->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
+		export_irram_expr(out, decls, e->loop.body, lvl+1);
+		cclprintf(out, 0, ";\n");
+		cclprintf(out, lvl, "}");
 		break;
 	case CCLERICAL_EXPR_ASGN:
-		cclprintf(0, "%s%zu = ", CCL_PREFIX, e->asgn.var);
-		export_irram_expr(decls, e->asgn.expr, lvl);
-		//cclprintf(0, ";\n");
+		cclprintf(out, 0, "%s%zu = ", CCL_PREFIX, e->asgn.var);
+		export_irram_expr(out, decls, e->asgn.expr, lvl);
+		//cclprintf(out, 0, ";\n");
 		break;
 	case CCLERICAL_EXPR_SKIP:
-		cclprintf(0, "/* skip */");
+		cclprintf(out, 0, "/* skip */");
 		break;
 	case CCLERICAL_EXPR_SEQ:
-		cclprintf(0, "[&]");
-		export_irram_prog(decls, e->seq, lvl);
-		cclprintf(0, "()");
+		cclprintf(out, 0, "[&]");
+		export_irram_prog(out, decls, e->seq, lvl);
+		cclprintf(out, 0, "()");
 		break;
 	}
 }
 
-static void export_irram_prog(const vec_t *decls,
+static void export_irram_prog(FILE *out, const vec_t *decls,
                               const struct cclerical_prog *p, int lvl)
 {
-	cclprintf(0, "{\n");
+	cclprintf(out, 0, "{\n");
 	for (size_t i=0; i<p->exprs.valid; i++) {
 		struct cclerical_expr *e = p->exprs.data[i];
-		cclprintf(lvl+1, "%s", (i+1 == p->exprs.valid
+		cclprintf(out, lvl+1, "%s", (i+1 == p->exprs.valid
 		                        && e->result_type != CCLERICAL_TYPE_UNIT)
 		                       ? "return " : "");
-		export_irram_expr(decls, e, lvl+1);
-		cclprintf(0, ";\n");
+		export_irram_expr(out, decls, e, lvl+1);
+		cclprintf(out, 0, ";\n");
 	}
-	cclprintf(lvl, "}");
+	cclprintf(out, lvl, "}");
 }
 
-static void export_irram(const struct cclerical_prog *p, const vec_t *decls)
+static void export_irram(FILE *out,
+                         const struct cclerical_prog *p, const vec_t *decls)
 {
-	printf("%s\n", IRRAM_HEADER);
+	fprintf(out, "%s\n", IRRAM_HEADER);
 	for (size_t i=0; i<decls->valid; i++) {
 		struct cclerical_decl *d = decls->data[i];
 		if (d->type != CCLERICAL_DECL_FUN)
 			continue;
-		export_irram_fun_decl(decls, i);
-		printf(";\n");
+		export_irram_fun_decl(out, decls, i);
+		fprintf(out, ";\n");
 	}
-	printf("\n");
+	fprintf(out, "\n");
 	for (size_t i=0; i<decls->valid; i++) {
 		struct cclerical_decl *d = decls->data[i];
 		if (d->type != CCLERICAL_DECL_FUN || !d->fun.body)
 			continue;
-		export_irram_fun_decl(decls, i);
-		printf("\n");
-		export_irram_prog(decls, d->fun.body, 0);
-		printf("\n\n");
+		export_irram_fun_decl(out, decls, i);
+		fprintf(out, "\n");
+		export_irram_prog(out, decls, d->fun.body, 0);
+		fprintf(out, "\n\n");
 	}
-	printf("void compute()\n");
-	printf("{\n");
-	cclprintf(1, "using iRRAM::cout;\n");
-	cclprintf(1, "cout << []");
-	export_irram_prog(decls, p, 1);
-	cclprintf(0, "() << \"\\n\";\n");
-	printf("}\n");
+	fprintf(out, "void compute()\n");
+	fprintf(out, "{\n");
+	cclprintf(out, 1, "using iRRAM::cout;\n");
+	cclprintf(out, 1, "cout << []");
+	export_irram_prog(out, decls, p, 1);
+	cclprintf(out, 0, "() << \"\\n\";\n");
+	fprintf(out, "}\n");
 //	printf("\tREAL vars[%zu];\n", decls->valid);
 }
 
-typedef void backend_f(const struct cclerical_prog *p, const vec_t *decls);
+typedef void backend_f(FILE *, const struct cclerical_prog *, const vec_t *);
 
 static struct compiler {
 	const char *id;
@@ -540,8 +541,15 @@ static struct compiler {
 	{ NULL, NULL, }
 };
 
+struct cc_opts {
+	int dump_parse_tree;
+	FILE *output;
+};
+
+#define CC_OPTS_INIT { 0, stdout }
+
 static int compile_t17(const struct cclerical_input *in,
-                       const struct compiler *cc, int dump_parse_tree)
+                       const struct compiler *cc, const struct cc_opts *opts)
 {
 	struct cclerical_parser p;
 	yyscan_t scanner;
@@ -549,20 +557,16 @@ static int compile_t17(const struct cclerical_input *in,
 	YY_BUFFER_STATE st = cclerical__scan_bytes(in->data, in->size, scanner);
 	cclerical_parser_init(&p, in);
 	int r = cclerical_parse(&p, scanner);
-	struct cclerical_prog *cp = p.prog;
-	p.prog = NULL;
 	if (r) {
 		fprintf(stderr, "parse error %d, aborting\n", r);
 		goto done;
 	}
 
-	if (dump_parse_tree)
-		pprog(cp, 0);
-	cc->compile(cp, &p.decls);
+	if (opts->dump_parse_tree)
+		pprog(p.prog, 0);
+	cc->compile(opts->output, p.prog, &p.decls);
 
 done:
-	if (cp)
-		cclerical_prog_destroy(cp);
 	cclerical_parser_fini(&p);
 	cclerical__delete_buffer(st, scanner);
 	cclerical_lex_destroy(scanner);
@@ -601,7 +605,8 @@ static void open_input(FILE *f, struct cclerical_input *in)
 		for (size_t rd; (rd = fread(buf, 1, sizeof(buf), f)) > 0;) {
 			in->size += rd;
 			if (in->size+rd > sz)
-				in->data = realloc(in->data, sz = MAX(in->size+rd, 2*sz));
+				in->data = realloc(in->data,
+				                   sz = MAX(in->size+rd, 2*sz));
 			memcpy(in->data + in->size, buf, rd);
 			in->size += rd;
 			if (rd < sizeof(buf))
@@ -619,10 +624,11 @@ static void open_input(FILE *f, struct cclerical_input *in)
 
 int main(int argc, char **argv)
 {
-	int dump_parse_tree = 0;
+	struct cc_opts opts = CC_OPTS_INIT;
 	const struct compiler *cc = NULL;
+	const char *output = NULL;
 
-	for (int opt; (opt = getopt(argc, argv, ":b:dhx:")) != -1;)
+	for (int opt; (opt = getopt(argc, argv, ":b:dho:x:")) != -1;)
 		switch (opt) {
 		case 'b':
 			for (cc = COMPILERS; cc->id; cc++)
@@ -632,7 +638,7 @@ int main(int argc, char **argv)
 				break;
 			DIE(1,"error: TGT '%s' not supported for option '-b'\n",
 			    optarg);
-		case 'd': dump_parse_tree = 1; break;
+		case 'd': opts.dump_parse_tree = 1; break;
 		case 'h':
 			printf("usage: %s [-OPTS] [--] [FILE...]\n", argv[0]);
 			printf("\n\
@@ -646,6 +652,7 @@ Options [default]:\n\
 This program is distributed under BSD-3 license.\n\
 Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 			exit(0);
+		case 'o': output = optarg; break;
 		case 'x':
 			if (!strcmp(optarg, "T17")) break;
 			DIE(1,"error: just TGT 'T17' supported for option "
@@ -657,22 +664,38 @@ Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 	/* defaults */
 	if (!cc)
 		cc = COMPILERS;
+	if (output && argc - optind >= 2)
+		DIE(1,"error: -o can not be used with multiple input files\n");
+	if (output && !(opts.output = fopen(output, "wb")))
+		DIE(1,"error opening output file '%s': %s\n",
+		    output, strerror(errno));
 
-	int r = 0;
+	/* of type struct cclerical_input * */
+	struct cclerical_vector inputs = CCLERICAL_VECTOR_INIT;
 	if (argc == optind) {
 		struct cclerical_input in = { .name = "<stdin>" };
 		open_input(stdin, &in);
-		r = compile_t17(&in, cc, dump_parse_tree);
-		in.fini(&in);
+		cclerical_vector_add(&inputs, memdup(&in, sizeof(in)));
 	}
-	for (; !r && optind < argc; optind++) {
+	for (; optind < argc; optind++) {
 		struct cclerical_input in = { .name = argv[optind] };
 		FILE *f = fopen(in.name, "rb");
+		if (!f)
+			DIE(1,"error opening input file '%s': %s\n",
+			    in.name, strerror(errno));
 		open_input(f, &in);
 		fclose(f);
-		r = compile_t17(&in, cc, dump_parse_tree);
-		in.fini(&in);
+		cclerical_vector_add(&inputs, memdup(&in, sizeof(in)));
 	}
 
+	int r = 0;
+	for (size_t i=0; !r && i<inputs.valid; i++) {
+		struct cclerical_input *in = inputs.data[i];
+		r = compile_t17(in, cc, &opts);
+		in->fini(in);
+		free(in);
+	}
+	cclerical_vector_fini(&inputs);
+	fclose(opts.output);
 	return r;
 }

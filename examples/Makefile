@@ -19,7 +19,7 @@ all: $(EXAMPLES)
 	$(MAKE) -C .. ccl
 
 %.cc: %.t17 ../ccl
-	../ccl < $< > $@
+	../ccl -b iRRAM -o $@ $<
 
 %: %.cc ../std-irram.cc
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ $(LDFLAGS) $(LDLIBS) -o $@
