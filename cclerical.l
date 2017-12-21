@@ -8,23 +8,28 @@ static char * ccl_strdup(const char *s)
 	return memdup(s, strlen(s)+1);
 }
 
+void update_last_loc1(YYLTYPE *loc, char c)
+{
+	switch (c) {
+	case '\n':
+		loc->last_line++;
+		loc->last_column = 0;
+		break;
+	case '\t':
+		loc->last_column = (loc->last_column + 8) & ~7U;
+		break;
+	default:
+		loc->last_column++;
+		break;
+	}
+}
+
 static void update_loc(YYLTYPE *loc, const char *s)
 {
 	loc->first_line = loc->last_line;
 	loc->first_column = loc->last_column;
 	for (; *s; s++)
-		switch (*s) {
-		case '\n':
-			loc->last_line++;
-			loc->last_column = 0;
-			break;
-		case '\t':
-			loc->last_column = (loc->last_column + 8) & ~7U;
-			break;
-		default:
-			loc->last_column++;
-			break;
-		}
+		update_last_loc1(loc, *s);
 }
 
 static void cnst_bool(struct cclerical_constant *c, int v)

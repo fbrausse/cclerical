@@ -326,7 +326,7 @@ expr
     {
 	cclerical_id_t v;
 	size_t scope_idx;
-	if (!lookup_var(p, $1, &v, &scope_idx, &yylloc, 1, "variable"))
+	if (!lookup_var(p, $1, &v, &scope_idx, &yyloc, 1, "variable"))
 		YYERROR;
 	free($1);
 	struct cclerical_decl *d = p->decls.data[v];
@@ -433,6 +433,39 @@ static void print_loc(FILE *out, const YYLTYPE *locp)
 	}
 }
 
+void update_last_loc1(YYLTYPE *loc, char c);
+
+#define VT100_BOLD_RED	"\x1b[1;31m"
+#define VT100_DEFAULT	"\x1b[0m"
+
+static void highlight(const struct cclerical_input *input, const YYLTYPE *locp)
+{
+	YYLTYPE c = { 1, 1, 1, 1 };
+	const char *s = input->data, *fini = s + input->size;
+	while (c.last_line < locp->first_line && s < fini)
+		update_last_loc1(&c, *s++);
+	if (s >= fini)
+		return;
+	const char *begin_line = s;
+	const char *begin_col = NULL, *end_col = NULL;
+	while (c.last_line <= locp->last_line && s < fini) {
+		if (c.last_line == locp->first_line &&
+		    c.last_column == locp->first_column)
+			begin_col = s;
+		if (c.last_line == locp->last_line &&
+		    c.last_column == locp->last_column)
+			end_col = s;
+		update_last_loc1(&c, *s++);
+	}
+	if (!end_col)
+		end_col = s;
+	const char *end_line = s;
+	fprintf(stderr, "%.*s%s%.*s%s%.*s",
+	        (int)(begin_col - begin_line), begin_line, VT100_BOLD_RED,
+	        (int)(end_col - begin_col), begin_col, VT100_DEFAULT,
+	        (int)(end_line - end_col), end_col);
+}
+
 static void logmsg(const struct cclerical_parser *p, const YYLTYPE *locp,
                    const char *file, int lineno,
                    const char *msg_type, const char *fmt, ...)
@@ -443,14 +476,15 @@ static void logmsg(const struct cclerical_parser *p, const YYLTYPE *locp,
 	(void)file;
 	(void)lineno;
 #endif
-	fprintf(stderr, "%s: %s at ", p->input->name, msg_type);
+	fprintf(stderr, "%s:", p->input->name);
 	print_loc(stderr, locp);
-	fprintf(stderr, ": ");
+	fprintf(stderr, " %s: ", msg_type);
 	va_list ap;
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 	fprintf(stderr, "\n");
+	highlight(p->input, locp);
 }
 
 static int lookup_var(struct cclerical_parser *p, char *id,
@@ -526,18 +560,18 @@ static int is_arith_op(enum cclerical_op op)
 }
 
 static const char *const OP_STRS[] = {
-	[CCLERICAL_OP_NEG] = "neg",
-	[CCLERICAL_OP_NOT] = "not",
-	[CCLERICAL_OP_AND] = "and",
-	[CCLERICAL_OP_OR]  = "or",
-	[CCLERICAL_OP_ADD] = "add",
-	[CCLERICAL_OP_SUB] = "sub",
-	[CCLERICAL_OP_MUL] = "mul",
-	[CCLERICAL_OP_DIV] = "div",
-	[CCLERICAL_OP_EXP] = "exp",
-	[CCLERICAL_OP_LT]  = "lt",
-	[CCLERICAL_OP_GT]  = "gt",
-	[CCLERICAL_OP_NE]  = "ne",
+	[CCLERICAL_OP_NEG] = "-",
+	[CCLERICAL_OP_NOT] = "!",
+	[CCLERICAL_OP_AND] = "&",
+	[CCLERICAL_OP_OR]  = "|",
+	[CCLERICAL_OP_ADD] = "+",
+	[CCLERICAL_OP_SUB] = "-",
+	[CCLERICAL_OP_MUL] = "*",
+	[CCLERICAL_OP_DIV] = "/",
+	[CCLERICAL_OP_EXP] = "^",
+	[CCLERICAL_OP_LT]  = "<",
+	[CCLERICAL_OP_GT]  = ">",
+	[CCLERICAL_OP_NE]  = "/=",
 };
 
 static int is_pure(const struct cclerical_parser *p,
