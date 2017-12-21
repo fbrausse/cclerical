@@ -255,7 +255,7 @@ expr
   | IDENT
     {
 	cclerical_id_t v;
-	if (!lookup_var(p, $1, &v, NULL, &yylloc, 0, "variable"))
+	if (!lookup_var(p, $1, &v, NULL, &yyloc, 0, "variable"))
 		YYERROR;
 	free($1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_VAR);

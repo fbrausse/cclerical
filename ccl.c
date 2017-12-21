@@ -562,8 +562,10 @@ static int compile_t17(const struct cclerical_input *in,
 		goto done;
 	}
 
-	if (opts->dump_parse_tree)
+	if (opts->dump_parse_tree) {
+		fprintf(stderr, "%s:\n", in->name);
 		pprog(p.prog, 0);
+	}
 	cc->compile(opts->output, p.prog, &p.decls);
 
 done:
