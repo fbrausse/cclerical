@@ -9,6 +9,7 @@ EXAMPLES = \
 	abs \
 	if \
 	if2 \
+	logmap \
 	sqrt \
 
 .PHONY: all clean
