@@ -177,11 +177,10 @@ static void export_irram_var_decl(FILE *out, const vec_t *decls, cclerical_id_t 
 	        const_ref ? "&" : "", CCL_PREFIX, ai, a->id);
 }
 
-static void export_irram_fun_decl(FILE *out, const vec_t *decls, cclerical_id_t i)
+static void export_irram_fun_sig(FILE *out, const vec_t *decls, cclerical_id_t i)
 {
 	struct cclerical_decl *d = decls->data[i];
 	if (!cclerical_decl_fun_is_external(d)) {
-		fprintf(out, "/* clerical fun: %s */\n", d->id);
 		fprintf(out, "static %s %s%zu(",
 		       CCLERICAL_iRRAM_TYPES[d->value_type], CCL_PREFIX, i);
 		for (size_t j=0; j<d->fun.arguments.valid; j++) {
@@ -192,15 +191,28 @@ static void export_irram_fun_decl(FILE *out, const vec_t *decls, cclerical_id_t 
 		}
 		fprintf(out, ")");
 	} else {
-		fprintf(out, "/* clerical external fun #%zu: %s */\n", i, d->id);
-		fprintf(out, "namespace cclerical {\n");
 		fprintf(out, "%s %s(", CCLERICAL_iRRAM_TYPES[d->value_type], d->id);
 		for (size_t j=0; j<d->fun.arguments.valid; j++) {
 			enum cclerical_type t = (uintptr_t)d->fun.arguments.data[j];
 			fprintf(out, "%s%s", j ? ", " : "", CCLERICAL_iRRAM_TYPES[t]);
 		}
-		fprintf(out, ");\n}");
+		fprintf(out, ")");
 	}
+}
+
+static void export_irram_fun_decl(FILE *out, const vec_t *decls, cclerical_id_t i)
+{
+	struct cclerical_decl *d = decls->data[i];
+	if (!cclerical_decl_fun_is_external(d)) {
+		fprintf(out, "/* clerical fun: %s */\n", d->id);
+	} else {
+		fprintf(out, "/* clerical external fun #%zu: %s */\n", i, d->id);
+		fprintf(out, "namespace cclerical {\n");
+	}
+	export_irram_fun_sig(out, decls, i);
+	fprintf(out, ";\n");
+	if (cclerical_decl_fun_is_external(d))
+		fprintf(out, "}\n");
 }
 
 static void cclprintf(FILE *f, int lvl, const char *fmt, ...)
@@ -509,14 +521,14 @@ static void export_irram(FILE *out,
 		if (d->type != CCLERICAL_DECL_FUN)
 			continue;
 		export_irram_fun_decl(out, decls, i);
-		fprintf(out, ";\n");
 	}
 	fprintf(out, "\n");
 	for (size_t i=0; i<decls->valid; i++) {
 		struct cclerical_decl *d = decls->data[i];
-		if (d->type != CCLERICAL_DECL_FUN || !d->fun.body)
+		if (d->type != CCLERICAL_DECL_FUN ||
+		    cclerical_decl_fun_is_external(d))
 			continue;
-		export_irram_fun_decl(out, decls, i);
+		export_irram_fun_sig(out, decls, i);
 		fprintf(out, "\n");
 		export_irram_prog(out, decls, d->fun.body, 0);
 		fprintf(out, "\n\n");
