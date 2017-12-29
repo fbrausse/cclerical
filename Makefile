@@ -2,6 +2,7 @@
 LEXFLAGS = --batch
 YFLAGS = -v
 CFLAGS = -Wall -Wextra -O0 -g
+CCL_VERSION = 0.1
 
 .PHONY: clean examples
 
@@ -20,6 +21,7 @@ examples: ccl
 %.lex.o: override CFLAGS += -Wno-unused-function -Wno-sign-compare
 
 ccl.o cclerical.lex.o: cclerical.tab.h cclerical.lex.h
+ccl.o: CPPFLAGS += '-DCCL_VERSION_STR="$(CCL_VERSION)"'
 
 cclerical.tab.c cclerical.tab.h: cclerical.y
 	$(YACC) $(YFLAGS) -b cclerical $<
