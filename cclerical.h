@@ -150,7 +150,7 @@ struct cclerical_expr {
 			struct cclerical_vector inits;
 			struct cclerical_expr *body;
 		} decl_asgn;
-		struct {} skip; /* skip */
+		/* struct {} skip; */
 		struct {
 			struct cclerical_expr *cond;
 			struct cclerical_expr *body;
@@ -219,7 +219,7 @@ struct cclerical_decl {
 };
 
 #define CCLERICAL_DECL_INIT_VAR(value_type,id,loc) \
-	{ CCLERICAL_DECL_VAR, value_type, id, loc, .var = {}, }
+	{ CCLERICAL_DECL_VAR, value_type, id, loc, /*.var = {},*/ }
 
 #define CCLERICAL_DECL_INIT_FUN(value_type,id,loc,args,body) \
 	{ CCLERICAL_DECL_FUN, value_type, id, loc, .fun = { args, body }, }

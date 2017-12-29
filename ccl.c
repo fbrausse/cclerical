@@ -621,7 +621,7 @@ static void open_input(FILE *f, struct cclerical_input *in)
 			if (in->size+rd > sz)
 				in->data = realloc(in->data,
 				                   sz = MAX(in->size+rd, 2*sz));
-			memcpy(in->data + in->size, buf, rd);
+			memcpy((char *)in->data + in->size, buf, rd);
 			in->size += rd;
 			if (rd < sizeof(buf))
 				break;
