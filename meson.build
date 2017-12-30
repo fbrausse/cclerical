@@ -27,7 +27,13 @@ cclparser = custom_target( 'cclerical.tab'
                          )
 cclheaders = declare_dependency(sources : [ ccllexer[1], cclparser[1] ])
 
-cclexe = executable('ccl', 'ccl.c', ccllexer[0], cclparser[0], 'cclerical.c'
+ccl_srcs = [ 'ccl.c'
+           , ccllexer[0]
+           , cclparser[0]
+           , 'cclerical.c'
+           ]
+
+cclexe = executable('ccl', ccl_srcs
                    , dependencies : cclheaders
                    , c_args       : [ '-D_POSIX_C_SOURCE=2'
                                     , '-DCCL_VERSION_STR="'+meson.project_version()+'"'
