@@ -11,6 +11,8 @@
 #include "cclerical.tab.h" /* cclerical_parse*() */
 #include "cclerical.lex.h" /* cclerical_lex_(init|destroy) */
 
+#include "ccl-ssa.h"
+
 #define MAX(a,b)	((a) > (b) ? (a) : (b))
 
 static void pprog(const struct cclerical_prog *p, int lvl);
@@ -167,7 +169,7 @@ static const char *const CCLERICAL_CPP_BOPS[] = {
 
 #define CCL_PREFIX	"ccl_"
 
-typedef struct cclerical_vector vec_t;
+typedef ccl_vec_t vec_t;
 
 static void export_irram_var_decl(FILE *out, const vec_t *decls, cclerical_id_t ai, int const_ref)
 {
