@@ -15,6 +15,32 @@
 
 #define MAX(a,b)	((a) > (b) ? (a) : (b))
 
+static const char *const ops[] = {
+	[CCLERICAL_OP_NEG] = "neg",
+	[CCLERICAL_OP_NOT] = "not",
+	[CCLERICAL_OP_AND] = "and",
+	[CCLERICAL_OP_OR]  = "or",
+	[CCLERICAL_OP_ADD] = "add",
+	[CCLERICAL_OP_SUB] = "sub",
+	[CCLERICAL_OP_MUL] = "mul",
+	[CCLERICAL_OP_DIV] = "div",
+	[CCLERICAL_OP_EXP] = "exp",
+	[CCLERICAL_OP_LT]  = "lt",
+	[CCLERICAL_OP_GT]  = "gt",
+	[CCLERICAL_OP_NE]  = "ne",
+};
+
+static void pcnst(FILE *out, const struct cclerical_constant *c)
+{
+	if (c->type == CCLERICAL_TYPE_BOOL)
+		fprintf(out, "%s",
+		        c->boolean ? "true" : "false");
+	else
+		fprintf(out, "(%s)_%u",
+		        c->numeric.str, c->numeric.base);
+	fprintf(out, " : %s", CCLERICAL_TYPE_STR[c->type]);
+}
+
 static void pprog(const struct cclerical_prog *p, int lvl);
 
 static void pexpr(const struct cclerical_expr *e, int lvl)
@@ -49,20 +75,6 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		fprintf(stderr, "%*s decl-asgn done\n", lvl, "");
 		break;
 	case CCLERICAL_EXPR_OP: {
-		static const char *const ops[] = {
-			[CCLERICAL_OP_NEG] = "neg",
-			[CCLERICAL_OP_NOT] = "not",
-			[CCLERICAL_OP_AND] = "and",
-			[CCLERICAL_OP_OR]  = "or",
-			[CCLERICAL_OP_ADD] = "add",
-			[CCLERICAL_OP_SUB] = "sub",
-			[CCLERICAL_OP_MUL] = "mul",
-			[CCLERICAL_OP_DIV] = "div",
-			[CCLERICAL_OP_EXP] = "exp",
-			[CCLERICAL_OP_LT]  = "lt",
-			[CCLERICAL_OP_GT]  = "gt",
-			[CCLERICAL_OP_NE]  = "ne",
-		};
 		fprintf(stderr, "%*sop: %s\n", lvl, "", ops[e->op.op]);
 		for (unsigned i=0; i<cclerical_op_arity(e->op.op); i++)
 			pexpr(e->op.args[i], lvl+1);
@@ -70,13 +82,8 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 	}
 	case CCLERICAL_EXPR_CNST: {
 		fprintf(stderr, "%*scnst: ", lvl, "");
-		if (e->cnst.type == CCLERICAL_TYPE_BOOL)
-			fprintf(stderr, "%s",
-			        e->cnst.boolean ? "true" : "false");
-		else
-			fprintf(stderr, "(%s)_%u",
-			        e->cnst.numeric.str, e->cnst.numeric.base);
-		fprintf(stderr, " : %s\n", CCLERICAL_TYPE_STR[e->cnst.type]);
+		pcnst(stderr, &e->cnst);
+		fprintf(stderr, "\n");
 		break;
 	}
 	case CCLERICAL_EXPR_IF:
@@ -545,6 +552,153 @@ static void export_irram(FILE *out,
 //	printf("\tREAL vars[%zu];\n", decls->valid);
 }
 
+static const char *const CCL_TYPE_STR[] = {
+	[CCL_TYPE_UNIT]     = "Unit",
+	[CCL_TYPE_BOOL]     = "Bool",
+	[CCL_TYPE_INT ]     = "Int",
+	[CCL_TYPE_REAL]     = "Real",
+	[CCL_TYPE_KLEENEAN] = "Kleenean",
+};
+
+static const char *const CCL_UNIT_STR[] = {
+	[CCL_UNIT_STAR] = "*",
+};
+
+static const char *const CCL_KLEENEAN_STR[] = {
+	[CCL_KLEENEAN_FALSE] = "false",
+	[CCL_KLEENEAN_TRUE ] = "true",
+	[CCL_KLEENEAN_BOT  ] = "bot",
+};
+
+static void ccl_cfg_dump_decl(FILE *out, const struct ccl_tu *tu,
+                              ccl_decl_id_t id, int lvl)
+{
+	const struct ccl_decl *d = tu->decl_storage.data[id.id];
+	cclprintf(out, lvl,
+	          "decl #%zu: value_type: %s, constant: %d, org_artificial: %d",
+	          id.id, CCL_TYPE_STR[d->value_type], d->is_constant,
+	          d->origin_is_artificial);
+	if (d->is_constant && d->origin_is_artificial) {
+		const char *ts = NULL;
+		switch (d->value_type) {
+		case CCL_TYPE_UNIT:
+			ts = CCL_UNIT_STR[d->art_cnst_value.unit];
+			break;
+		case CCL_TYPE_BOOL:
+		case CCL_TYPE_INT:
+		case CCL_TYPE_REAL:
+			break;
+		case CCL_TYPE_KLEENEAN:
+			ts = CCL_KLEENEAN_STR[d->art_cnst_value.kleenean];
+			break;
+		}
+		cclprintf(out, 0, ", org-imm: %s", ts);
+	} else if (d->is_constant) {
+		cclprintf(out, 0, ", org-cnst: ");
+		pcnst(out, d->origin.cnst);
+	} else if (d->origin_is_artificial) {
+		cclprintf(out, 0, ", org-insn: #%zu", d->origin.art);
+	} else {
+		const struct cclerical_decl *dd = d->origin.org;
+		cclprintf(out, 0, ", org-decl: %s, type: %s, id: %s",
+		          dd->type == CCLERICAL_DECL_VAR ? "var" : "fun",
+		          CCLERICAL_TYPE_STR[dd->value_type], dd->id);
+		if (dd->type == CCLERICAL_DECL_FUN &&
+		    !cclerical_decl_fun_is_external(dd))
+			cclprintf(out, 0, ", f#%zu", d->fun_id.id);
+	}
+	cclprintf(out, 0, "\n");
+}
+
+static void ccl_cfg_dump_insn_asgn(FILE *out, const struct ccl_tu *tu,
+                                   const struct ccl_insn_asgn *a, int lvl)
+{
+	cclprintf(out, 0, "asgn decl #%zu <- ", a->lhs.id);
+	switch (a->type) {
+	case CCL_INSN_ASGN_ALIAS:
+		cclprintf(out, 0, "alias decl #%zu, args: ", a->alias.decl.id);
+		for (size_t i=0; i<a->alias.args.valid; i++) {
+			ccl_decl_id_t d = { .id = (uintptr_t)a->alias.args.data[i] };
+			cclprintf(out, 0, "%sdecl #%zu", i ? ", " : "", d.id);
+		}
+		break;
+	case CCL_INSN_ASGN_LIM:
+		cclprintf(out, 0, "lim decl #%zu -> insn #%zu",
+		          a->lim.seq_idx.id, a->lim.body.id);
+		break;
+	case CCL_INSN_ASGN_OP:
+		cclprintf(out, 0, "op %s, args: ", ops[a->op.op]);
+		for (size_t i=0; i<cclerical_op_arity(a->op.op); i++)
+			cclprintf(out, 0, "%sdecl #%zu", i ? ", " : "",
+			          a->op.args[i].id);
+	}
+	cclprintf(out, 0, "; next insn #%zu\n", a->next.id);
+}
+
+static void ccl_cfg_dump_insn(FILE *out, const struct ccl_tu *tu,
+                              ccl_insn_id_t id, int lvl)
+{
+	const struct ccl_insn *in = tu->insn_storage.data[id.id];
+	cclprintf(out, lvl, "insn #%zu: ", id.id);
+	switch (in->type) {
+	case CCL_INSN_ASGN:
+		ccl_cfg_dump_insn_asgn(out, tu, &in->asgn, lvl+1);
+		break;
+	case CCL_INSN_CASE:
+		cclprintf(out, 0, "%zu cases\n", in->cases.conds.valid);
+		for (size_t i=0; i<in->cases.conds.valid; i++) {
+			ccl_decl_id_t c = { .id = (uintptr_t)in->cases.conds.data[i] };
+			ccl_insn_id_t b = { .id = (uintptr_t)in->cases.bodies.data[i] };
+			cclprintf(out, lvl+1, "case decl #%zu -> insn #%zu\n",
+			          c.id, b.id);
+		}
+		break;
+	case CCL_INSN_IF:
+		cclprintf(out, 0,
+		          "if: decl #%zu -> insn #%zu; else insn #%zu\n",
+		          in->branch.cond.id,
+		          in->branch.if_true.id, in->branch.if_false.id);
+		break;
+	case CCL_INSN_WHILE:
+		cclprintf(out, 0,
+		          "while: decl #%zu -> insn #%zu; next: insn #%zu\n",
+		          in->loop.cond.id, in->loop.body.id, in->loop.next.id);
+		break;
+	case CCL_INSN_RETURN:
+		cclprintf(out, 0, "return: decl #%zu\n", in->retval.id);
+		break;
+	}
+}
+
+static void ccl_cfg_dump(FILE *out, const struct ccl_tu *tu, int lvl)
+{
+	cclprintf(out, lvl, "cfg decls:\n");
+	for (size_t i=0; i<tu->decl_storage.valid; i++)
+		ccl_cfg_dump_decl(out, tu, (ccl_decl_id_t){ .id = i }, lvl+1);
+	cclprintf(out, lvl, "cfg insns:\n");
+	for (size_t i=0; i<tu->insn_storage.valid; i++) {
+		ccl_insn_id_t in_id = { .id = i };
+		for (size_t j=0; j<tu->fun_storage.valid; j++) {
+			const struct ccl_fun *f = tu->fun_storage.data[j];
+			if (f->body.id == in_id.id)
+				cclprintf(out, 0, "f#%zu:", j);
+		}
+		ccl_cfg_dump_insn(out, tu, (ccl_insn_id_t){ .id = i }, lvl+1);
+	}
+}
+
+static void export_ssa(FILE *out,
+                       const struct cclerical_prog *p, const vec_t *decls)
+{
+	struct ccl_tu tu = CCL_TU_INIT;
+	ccl_tu_init(&tu, decls);
+	ccl_cfg_add(&tu, p);
+
+	ccl_cfg_dump(out, &tu, 0);
+
+	// ccl_tu_fini(&tu);
+}
+
 typedef void backend_f(FILE *, const struct cclerical_prog *, const vec_t *);
 
 static struct compiler {
@@ -552,6 +706,7 @@ static struct compiler {
 	backend_f *compile;
 } const COMPILERS[] = {
 	{ "iRRAM", export_irram, },
+	{ "ssa", export_ssa, },
 	{ NULL, NULL, }
 };
 
