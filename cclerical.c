@@ -10,13 +10,6 @@ const char *const CCLERICAL_TYPE_STR[] = {
 	[CCLERICAL_TYPE_REAL] = "Real"
 };
 
-static inline void cclerical_vector_ensure_size(struct cclerical_vector *v, size_t n)
-{
-	if (v->size < n &&
-	    !(v->data = realloc(v->data, sizeof(*v->data)*(v->size = MAX(n, v->valid*2)))))
-		abort();
-}
-
 void cclerical_vector_add(struct cclerical_vector *v, void *it)
 {
 	cclerical_vector_ensure_size(v, v->valid+1);

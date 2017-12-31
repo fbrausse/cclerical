@@ -40,6 +40,14 @@ static inline void cclerical_vector_init(struct cclerical_vector *v)
 	memset(v, 0, sizeof(*v));
 }
 
+static inline void cclerical_vector_ensure_size(struct cclerical_vector *v, size_t n)
+{
+	if (v->size < n &&
+	    !((v->size = n > v->valid*2 ? n : v->valid*2),
+	      v->data = realloc(v->data, sizeof(*v->data)*v->size)))
+		abort();
+}
+
 static inline void * cclerical_vector_last(const struct cclerical_vector *v)
 {
 	return v->data[v->valid-1];
