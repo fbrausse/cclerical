@@ -17,7 +17,10 @@ if gmp_lib.found() and mpfr_lib.found()
 
   if iRRAM_lib.found()
     iRRAM_inc = include_directories(get_variable('iRRAM_incdir', ''))
-    iRRAM_dep = declare_dependency( dependencies : [ iRRAM_lib, mpfr_lib, gmp_lib ]
+    iRRAM_dep = declare_dependency( dependencies : [ iRRAM_lib
+                                                   , mpfr_lib
+                                                   , gmp_lib
+                                                   ]
                                   , include_directories : iRRAM_inc
                                   )
   endif
@@ -31,7 +34,8 @@ examples = [ 'abs'
            ]
 
 if iRRAM_dep.found()
-  cclirram_stdlib = library('cclstd-iRRAM', files(join_paths('..', 'std-irram.cc'))
+  cclirram_stdlib = library('cclstd-iRRAM'
+                           , files(join_paths('..', 'std-irram.cc'))
                            , dependencies: iRRAM_dep
                            , build_rpath : get_variable('iRRAM_libdir', '')
                            )
@@ -43,5 +47,6 @@ if iRRAM_dep.found()
               )
   endforeach
 else
-  warning('iRRAM-library not found, examples won\'t be built; use "meson configure" to set the "iRRAM" option')
+  warning('iRRAM-library not found, examples won\'t be built; '
+         +'use "meson configure -DiRRAM=<PATH> '+meson.current_build_dir()+'"')
 endif
