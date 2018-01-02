@@ -710,9 +710,29 @@ static struct compiler {
 	{ NULL, NULL, }
 };
 
-struct cc_opts {
-	int dump_parse_tree;
-	FILE *output;
+struct feat_value {
+	const char *value;
+	const char *help_msg;
+};
+
+static const struct feat_value FEAT_CFG_COMPACT_STRS[] = {
+	[OPT_FEAT_CFG_COMPACT_ALIAS] = {
+		.value = "alias",
+		.help_msg = "compact alias assignments\n",
+	},
+	{ NULL, NULL, },
+};
+
+static struct {
+	const char *feat;
+	const struct feat_value *values;
+	const char *help_msg;
+} const FEAT_OPTS[] = {
+	[OPT_FEAT_CFG_COMPACT] = {
+		"cfg-compact",
+		FEAT_CFG_COMPACT_STRS,
+		"apply transformation passes on the control flow graph\n"
+	},
 };
 
 #define CC_OPTS_INIT { 0, stdout }
@@ -793,13 +813,65 @@ static void open_input(FILE *f, struct cclerical_input *in)
 	DIE(1,"error reading %s: not a regular file or FIFO\n",in->name);
 }
 
+static void parse_feat(struct cc_opts *opts, const char *f)
+{
+	const char *eq = strchr(f, '=');
+	if (!eq)
+		eq = f + strlen(f);
+	for (size_t i=0; i<ARRAY_SIZE(FEAT_OPTS); i++) {
+		const struct feat_value *v = FEAT_OPTS[i].values;
+		int disabled = !strncmp(f, "no-", 3);
+		const char *g = disabled ? f + 3 : f;
+		if (strncmp(g, FEAT_OPTS[i].feat, eq-g))
+			continue;
+		if (!eq && !v) {
+			opts->feat[i] = !disabled;
+			return;
+		}
+		if (eq && v) {
+			for (size_t j=0; v->value; j++, v++)
+				if (!strcmp(eq+1, v->value)) {
+					if (disabled)
+						opts->feat[i] &= ~(1U << j);
+					else
+						opts->feat[i] |= 1U << j;
+					return;
+				}
+		}
+		if (v) {
+			fprintf(stderr, "error parsing option '-f%s': "
+			                "must be = one of ", f);
+			v = FEAT_OPTS[i].values;
+			for (size_t j=0; v->value; j++, v++)
+				fprintf(stderr, "%s'%s'", j ? ", " : "",
+				        v->value);
+			DIE(1,"\n");
+		} else
+			DIE(1,"error parsing option '-f%s': "
+			      "can only be set or unset", f);
+	}
+	fprintf(stderr, "unknown feature option '-f%s', available are:\n", f);
+	for (size_t i=0; i<ARRAY_SIZE(FEAT_OPTS); i++) {
+		int n = fprintf(stderr, "\n  -f%s=", FEAT_OPTS[i].feat) - 1;
+		const struct feat_value *v = FEAT_OPTS[i].values;
+		fprintf(stderr, "%*s  %s", 24-n, "", FEAT_OPTS[i].help_msg);
+		if (!v)
+			continue;
+		for (; v->value; v++) {
+			n = fprintf(stderr, "      %s", v->value);
+			fprintf(stderr, "%*s  %s", 26-n, "", v->help_msg);
+		}
+	}
+	exit(1);
+}
+
 int main(int argc, char **argv)
 {
 	struct cc_opts opts = CC_OPTS_INIT;
 	const struct compiler *cc = NULL;
 	const char *output = NULL;
 
-	for (int opt; (opt = getopt(argc, argv, ":b:dho:vx:")) != -1;)
+	for (int opt; (opt = getopt(argc, argv, ":b:df:ho:vx:")) != -1;)
 		switch (opt) {
 		case 'b':
 			for (cc = COMPILERS; cc->id; cc++)
@@ -810,12 +882,16 @@ int main(int argc, char **argv)
 			DIE(1,"error: TGT '%s' not supported for option '-b'\n",
 			    optarg);
 		case 'd': opts.dump_parse_tree = 1; break;
+		case 'f':
+			parse_feat(&opts, optarg);
+			break;
 		case 'h':
 			printf("usage: %s [-OPTS] [--] [FILE...]\n", argv[0]);
 			printf("\n\
 Options [default]:\n\
   -b TGT     target backend TGT [iRRAM]; supported values for TGT: iRRAM\n\
   -d         dump parse tree to stderr for debugging purposes\n\
+  -f FEAT    enable FEAT (to disable, prefix FEAT by 'no-')\n\
   -h         print this help message\n\
   -o OUTPUT  write compiled TGT source file to OUTPUT [stdout]\n\
   -v         displays the version of ccl\n\
