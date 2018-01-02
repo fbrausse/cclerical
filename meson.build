@@ -32,6 +32,7 @@ ccl_srcs = [ 'ccl.c'
            , cclparser[0]
            , 'cclerical.c'
            , 'ccl-ssa.c'
+           , 'ccl-ast-irram.c'
            ]
 
 cclexe = executable('ccl', ccl_srcs
