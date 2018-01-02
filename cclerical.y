@@ -814,7 +814,7 @@ static struct cclerical_expr * expr(struct cclerical_parser *p,
 		ERROR(p, locp, "expression required to be pure in this context");
 		return NULL;
 	}
-	cclerical_type_set_t convertible_to = super_types(t);
+	cclerical_type_set_t convertible_to = 1U << t; // super_types(t);
 	cclerical_type_set_t common = convertible_to & forced;
 	if (!common) {
 		ERROR(p, locp,
