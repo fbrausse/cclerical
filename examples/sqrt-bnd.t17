@@ -1,0 +1,32 @@
+
+external real(Int) -> Real
+
+function abs(Real x):
+	lim n =>
+		var eps := 2.0^real(-n) in
+		case
+			x < eps => -x
+		||
+			x > eps => x
+		end
+
+function bounded(Real x, Int n):
+	var eps := 2.0^real(-n) in
+		case	x < eps     => true
+		||	x > eps/2.0 => false
+		end
+
+function sqrt(Real x):
+	lim n =>
+		var y := 1.0 in (
+		var two := 2.0 in
+		var z := x/y in (
+			while !bounded(abs(y-z), n)
+			do (
+				y := (y+z)/two;
+				z := x/y
+			)
+		); y)
+
+do
+	sqrt(2.0)

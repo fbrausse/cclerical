@@ -30,6 +30,7 @@ examples = [ 'abs'
            , 'if'
            , 'if2'
            , 'sqrt'
+           , 'sqrt-bnd'
            , 'logmap'
            ]
 
