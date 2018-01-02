@@ -48,9 +48,9 @@ static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
                     cclerical_id_t *v, const char *decl_desc);
 
 #define EXPR_NEW(e,req_pure)	\
-	do { if (!expr_new(p, e, req_pure, &yylloc)) YYERROR; } while (0)
+	do { if (!expr_new(p, e, req_pure, &yyloc)) YYERROR; } while (0)
 #define EXPR(e,forced,req_pure)	\
-	do { if (!expr(p, e, forced, req_pure, &yylloc)) YYERROR; } while (0)
+	do { if (!expr(p, e, forced, req_pure, &yyloc)) YYERROR; } while (0)
 
 %}
 
@@ -559,6 +559,30 @@ static int is_arith_op(enum cclerical_op op)
 	return -1;
 }
 
+static cclerical_type_set_t op_args(enum cclerical_op op)
+{
+	switch (op) {
+	case CCLERICAL_OP_NEG:
+	case CCLERICAL_OP_ADD:
+	case CCLERICAL_OP_SUB:
+	case CCLERICAL_OP_MUL:
+	case CCLERICAL_OP_DIV:
+	case CCLERICAL_OP_EXP:
+	case CCLERICAL_OP_LT:
+	case CCLERICAL_OP_GT:
+		return 1U << CCLERICAL_TYPE_INT |
+		       1U << CCLERICAL_TYPE_REAL;
+	case CCLERICAL_OP_NE:
+		return 1U << CCLERICAL_TYPE_BOOL |
+		       1U << CCLERICAL_TYPE_INT  |
+		       1U << CCLERICAL_TYPE_REAL;
+	case CCLERICAL_OP_NOT:
+	case CCLERICAL_OP_AND:
+	case CCLERICAL_OP_OR:
+		return 1U << CCLERICAL_TYPE_BOOL;
+	}
+}
+
 static const char *const OP_STRS[] = {
 	[CCLERICAL_OP_NEG] = "-",
 	[CCLERICAL_OP_NOT] = "!",
@@ -621,12 +645,18 @@ static int expr_type(const struct cclerical_parser *p,
 			ERROR(p, locp, "comparison with Boolean type");
 			return 0;
 		}
-		if (!is_arith_op(e->op.op)) {
-			expr_t = CCLERICAL_TYPE_BOOL;
-		} else if (!unique_t(arg_t, &expr_t)) {
+		enum cclerical_type arg_common;
+		if (!unique_t(arg_t, &arg_common)) {
 			ERROR(p, locp, "mixed-type op expression");
 			return 0;
 		}
+		if (!(op_args(e->op.op) & (1U << arg_common))) {
+			ERROR(p, locp, "operator %s not applicable to type %s",
+			      OP_STRS[e->op.op], CCLERICAL_TYPE_STR[arg_common]);
+			return 0;
+		}
+		expr_t = is_arith_op(e->op.op) ? arg_common
+		                               : CCLERICAL_TYPE_BOOL;
 		break;
 	}
 	case CCLERICAL_EXPR_LIM:
