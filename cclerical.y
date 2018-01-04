@@ -299,7 +299,6 @@ expr
     }
   | TK_IF pure_expr TK_THEN expr
     {
-	EXPR($2, 1U << CCLERICAL_TYPE_BOOL, 1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_IF);
 	$$->branch.cond = $2;
 	$$->branch.if_true = $4;
@@ -308,7 +307,6 @@ expr
     }
   | TK_IF pure_expr TK_THEN expr TK_ELSE expr
     {
-	EXPR($2, 1U << CCLERICAL_TYPE_BOOL, 1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_IF);
 	$$->branch.cond = $2;
 	$$->branch.if_true = $4;
@@ -342,7 +340,6 @@ expr
   | TK_SKIP { EXPR_NEW($$ = cclerical_expr_create(CCLERICAL_EXPR_SKIP),0); }
   | TK_WHILE pure_expr TK_DO expr
     {
-	EXPR($2, 1U << CCLERICAL_TYPE_BOOL, 1);
 	$$ = cclerical_expr_create(CCLERICAL_EXPR_WHILE);
 	$$->loop.cond = $2;
 	$$->loop.body = $4;
@@ -391,14 +388,12 @@ fun_call_params
 cases
   : pure_expr TK_RDARROW expr
     {
-	EXPR($1, 1U << CCLERICAL_TYPE_BOOL, 1);
 	cclerical_vector_init(&$$);
 	cclerical_vector_add(&$$, $1);
 	cclerical_vector_add(&$$, $3);
     }
   | cases TK_BARS pure_expr TK_RDARROW expr
     {
-	EXPR($3, 1U << CCLERICAL_TYPE_BOOL, 1);
 	$$ = $1;
 	cclerical_vector_add(&$$, $3);
 	cclerical_vector_add(&$$, $5);
@@ -658,6 +653,10 @@ static int expr_type(const struct cclerical_parser *p,
 				      i);
 				return 0;
 			}
+			if (b->result_type != CCLERICAL_TYPE_BOOL) {
+				ERROR(p, locp, "require boolean condition in case %zu", i);
+				return 0;
+			}
 			const struct cclerical_expr *f = e->cases.data[i+1];
 			arg_t |= 1U << f->result_type;
 			min_scope_asgn = MIN(min_scope_asgn, f->min_scope_asgn);
@@ -673,6 +672,10 @@ static int expr_type(const struct cclerical_parser *p,
 		cclerical_type_set_t arg_t = 0;
 		if (!is_pure(p, e->branch.cond)) {
 			ERROR(p, locp, "impure condition in if command");
+			return 0;
+		}
+		if (e->branch.cond->result_type != CCLERICAL_TYPE_BOOL) {
+			ERROR(p, locp, "require boolean condition in if command");
 			return 0;
 		}
 		min_scope_asgn = e->branch.if_true->min_scope_asgn;
@@ -747,6 +750,10 @@ static int expr_type(const struct cclerical_parser *p,
 	case CCLERICAL_EXPR_WHILE:
 		if (!is_pure(p, e->loop.cond)) {
 			ERROR(p, locp, "impure condition in while-loop");
+			return 0;
+		}
+		if (e->loop.cond->result_type != CCLERICAL_TYPE_BOOL) {
+			ERROR(p, locp, "require boolean condition in while-loop");
 			return 0;
 		}
 		expr_t = CCLERICAL_TYPE_UNIT;
