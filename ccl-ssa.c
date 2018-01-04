@@ -50,7 +50,7 @@ void ccl_tu_init(struct ccl_tu *tu, const ccl_vec_t *decls)
 		if (d->type != CCLERICAL_DECL_FUN ||
 		    cclerical_decl_fun_is_external(d))
 			continue;
-		ccl_fun_id_t fun_id = ccl_cfg_add(tu, d->fun.body);
+		ccl_fun_id_t fun_id = ccl_cfg_add(tu, d->fun.body, d->source_loc);
 		struct ccl_decl *dd = get_decl(tu, (ccl_decl_id_t){ .id = i });
 		dd->fun_id = fun_id;
 	}
@@ -77,20 +77,23 @@ ccl_decl_id_t ccl_tu_decl_add_art(struct ccl_tu *tu, enum cclerical_type t,
 	return r;
 }
 
-ccl_insn_id_t ccl_tu_insn_add(struct ccl_tu *tu, enum ccl_insn_type type)
+ccl_insn_id_t ccl_tu_insn_add(struct ccl_tu *tu, enum ccl_insn_type type,
+                              struct cclerical_source_loc source_loc)
 {
 	ccl_insn_id_t r = { .id = tu->insn_storage.valid };
 	struct ccl_insn *in = calloc(1, sizeof(struct ccl_insn));
 	in->type = type;
+	in->source_loc = source_loc;
 	cclerical_vector_add(&tu->insn_storage, in);
 	return r;
 }
 
 static ccl_insn_id_t ccl_tu_insn_add_asgn(struct ccl_tu *tu,
+                                          struct cclerical_source_loc source_loc,
                                           enum ccl_insn_asgn_type type,
                                           ccl_decl_id_t lhs, ccl_insn_id_t next)
 {
-	ccl_insn_id_t id = ccl_tu_insn_add(tu, CCL_INSN_ASGN);
+	ccl_insn_id_t id = ccl_tu_insn_add(tu, CCL_INSN_ASGN, source_loc);
 	struct ccl_insn *r = get_insn(tu, id);
 	r->asgn.type = type;
 	r->asgn.lhs  = lhs;
@@ -135,7 +138,7 @@ static ccl_insn_id_t ssa_asgn_new(struct ccl_tu *tu,
 	}
 
 	ccl_decl_id_t lhs_id = asgn_to ? *asgn_to : ccl_tu_decl_add(tu); /* new variable */
-	ccl_insn_id_t in_asgn_id = ccl_tu_insn_add_asgn(tu, asgn_type, lhs_id, next);
+	ccl_insn_id_t in_asgn_id = ccl_tu_insn_add_asgn(tu, e->source_loc, asgn_type, lhs_id, next);
 	if (asgn_to) {
 		struct ccl_decl *lhs = get_decl(tu, lhs_id);
 		assert(lhs->value_type == e->result_type);
@@ -243,7 +246,7 @@ ccl_insn_id_t ccl_cfg_add_expr(struct ccl_tu *tu,
 		return chain_id;
 	}
 	case CCLERICAL_EXPR_CASE: {
-		ccl_insn_id_t cases_id = ccl_tu_insn_add(tu, CCL_INSN_CASE);
+		ccl_insn_id_t cases_id = ccl_tu_insn_add(tu, CCL_INSN_CASE, e->source_loc);
 		{
 			struct ccl_insn *cases = get_insn(tu, cases_id);
 			size_t n = e->cases.valid / 2;
@@ -267,7 +270,7 @@ ccl_insn_id_t ccl_cfg_add_expr(struct ccl_tu *tu,
 	}
 	case CCLERICAL_EXPR_IF: {
 		ccl_insn_id_t branch_id, cond_id, if0, if1;
-		branch_id = ccl_tu_insn_add(tu, CCL_INSN_IF);
+		branch_id = ccl_tu_insn_add(tu, CCL_INSN_IF, e->source_loc);
 		ccl_decl_id_t c = ccl_tu_decl_add_art(tu, e->branch.cond->result_type, branch_id);
 		cond_id = ccl_cfg_add_expr(tu, e->branch.cond, branch_id, &c);
 		if1 = ccl_cfg_add_expr(tu, e->branch.if_true, next, asgn_to);
@@ -282,7 +285,7 @@ ccl_insn_id_t ccl_cfg_add_expr(struct ccl_tu *tu,
 	}
 	case CCLERICAL_EXPR_WHILE: {
 		assert(!asgn_to);
-		ccl_insn_id_t loop_id = ccl_tu_insn_add(tu, CCL_INSN_WHILE);
+		ccl_insn_id_t loop_id = ccl_tu_insn_add(tu, CCL_INSN_WHILE, e->source_loc);
 		ccl_decl_id_t c = ccl_tu_decl_add_art(tu, e->loop.cond->result_type, loop_id);
 		ccl_insn_id_t cond_id = ccl_cfg_add_expr(tu, e->loop.cond,
 		                                         loop_id, &c);
@@ -312,9 +315,9 @@ ccl_insn_id_t ccl_cfg_add_prog(struct ccl_tu *tu,
 	return ret;
 }
 
-ccl_fun_id_t ccl_cfg_add(struct ccl_tu *tu, const struct cclerical_prog *p)
+ccl_fun_id_t ccl_cfg_add(struct ccl_tu *tu, const struct cclerical_prog *p, struct cclerical_source_loc source_loc)
 {
-	ccl_insn_id_t endfun = ccl_tu_insn_add(tu, CCL_INSN_RETURN);
+	ccl_insn_id_t endfun = ccl_tu_insn_add(tu, CCL_INSN_RETURN, source_loc);
 	ccl_decl_id_t ret = ccl_tu_decl_add_art(tu, cclerical_prog_type(p), endfun);
 	get_insn(tu, endfun)->retval = ret;
 

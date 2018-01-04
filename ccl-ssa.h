@@ -52,6 +52,7 @@ enum ccl_insn_type {
 
 struct ccl_insn {
 	enum ccl_insn_type type;
+	struct cclerical_source_loc source_loc;
 	union {
 		struct ccl_insn_asgn asgn;
 		struct {
@@ -146,6 +147,6 @@ struct ccl_tu {
 void ccl_tu_init(struct ccl_tu *tu, const ccl_vec_t *decls);
 void ccl_tu_fini(const struct ccl_tu *tu);
 
-ccl_fun_id_t ccl_cfg_add(struct ccl_tu *tu, const struct cclerical_prog *p);
+ccl_fun_id_t ccl_cfg_add(struct ccl_tu *tu, const struct cclerical_prog *p, struct cclerical_source_loc source_loc);
 
 #endif

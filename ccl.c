@@ -296,7 +296,10 @@ static void export_ssa(FILE *out,
 {
 	struct ccl_tu tu = CCL_TU_INIT;
 	ccl_tu_init(&tu, decls);
-	ccl_cfg_add(&tu, p);
+	if (p) {
+		struct cclerical_source_loc dummy = { 0, 0, 0, 0 };
+		ccl_cfg_add(&tu, p, dummy);
+	}
 
 	ccl_cfg_dump(out, &tu, 0);
 
