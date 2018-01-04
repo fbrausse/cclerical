@@ -3,6 +3,7 @@
 #define CCLERICAL_H
 
 #include <stdint.h>
+#include <stdio.h>	/* FILE */
 #include <stdlib.h>	/* malloc(), free(), abort() */
 #include <string.h>
 #include <errno.h>
@@ -22,6 +23,10 @@ struct cclerical_source_loc {
 	int first_line, first_column;
 	int last_line, last_column;
 };
+
+void cclerical_highlight(FILE *out,
+                         const struct cclerical_input *input,
+                         const struct cclerical_source_loc *locp);
 
 static inline void * memdup(const void *src, size_t n)
 {

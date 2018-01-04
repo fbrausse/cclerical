@@ -8,7 +8,7 @@ static char * ccl_strdup(const char *s)
 	return memdup(s, strlen(s)+1);
 }
 
-void update_last_loc1(YYLTYPE *loc, char c)
+void update_last_loc1(struct cclerical_source_loc *loc, char c)
 {
 	switch (c) {
 	case '\n':
@@ -24,7 +24,7 @@ void update_last_loc1(YYLTYPE *loc, char c)
 	}
 }
 
-static void update_loc(YYLTYPE *loc, const char *s)
+static void update_loc(struct cclerical_source_loc *loc, const char *s)
 {
 	loc->first_line = loc->last_line;
 	loc->first_column = loc->last_column;

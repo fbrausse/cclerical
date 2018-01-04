@@ -16,6 +16,7 @@
 
 typedef ccl_vec_t vec_t;
 
+#define MIN(a,b)	((a) < (b) ? (a) : (b))
 #define MAX(a,b)	((a) > (b) ? (a) : (b))
 
 static const char *const ops[] = {
@@ -274,8 +275,10 @@ static void ccl_cfg_dump_insn(FILE *out, const struct ccl_tu *tu,
 	}
 }
 
-static void ccl_cfg_dump(FILE *out, const struct ccl_tu *tu, const struct ccl_cfg_bb *cbb)
+static void ccl_cfg_dump(FILE *out, const struct cclerical_input *input,
+                         const struct ccl_tu *tu, const struct ccl_cfg_bb *cbb)
 {
+	(void)input;
 	cclprintf(out, 0, "cfg decls:\n");
 	for (size_t i=0; i<tu->decl_storage.valid; i++)
 		ccl_cfg_dump_decl(out, tu, (ccl_decl_id_t){ .id = i }, 1);
@@ -319,7 +322,7 @@ static void ccl_cfg_dump(FILE *out, const struct ccl_tu *tu, const struct ccl_cf
 	}
 }
 
-static void export_ssa(FILE *out,
+static void export_ssa(FILE *out, const struct cclerical_input *input,
                        const struct cclerical_prog *p, const vec_t *decls)
 {
 	struct ccl_tu tu = CCL_TU_INIT;
@@ -331,7 +334,7 @@ static void export_ssa(FILE *out,
 
 	struct ccl_cfg_bb cbb;
 	ccl_cfg_bb_init(&cbb, &tu);
-	ccl_cfg_dump(out, &tu, &cbb);
+	ccl_cfg_dump(out, input, &tu, &cbb);
 
 	// ccl_tu_fini(&tu);
 }
@@ -390,7 +393,7 @@ static int compile_t17(const struct cclerical_input *in,
 		fprintf(stderr, "%s:\n", in->name);
 		pprog(p.prog, 0);
 	}
-	cc->compile(opts->output, p.prog, &p.decls);
+	cc->compile(opts->output, in, p.prog, &p.decls);
 
 done:
 	cclerical_parser_fini(&p);

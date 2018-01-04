@@ -3,6 +3,43 @@
 
 #define MAX(a,b)	((a) < (b) ? (b) : (a))
 
+#define VT100_BOLD_RED	"\x1b[1;31m"
+#define VT100_DEFAULT	"\x1b[0m"
+
+void update_last_loc1(struct cclerical_source_loc *loc, char c);
+
+void cclerical_highlight(FILE *out,
+                         const struct cclerical_input *input,
+                         const struct cclerical_source_loc *locp)
+{
+	struct cclerical_source_loc c = { 1, 1, 1, 1 };
+	const char *s = input->data, *fini = s + input->size;
+	while (c.last_line < locp->first_line && s < fini)
+		update_last_loc1(&c, *s++);
+	if (s >= fini)
+		return;
+	const char *begin_line = s;
+	const char *begin_col = NULL, *end_col = NULL;
+	while (c.last_line <= locp->last_line && s < fini) {
+		if (c.last_line == locp->first_line &&
+		    c.last_column == locp->first_column)
+			begin_col = s;
+		if (c.last_line == locp->last_line &&
+		    c.last_column == locp->last_column)
+			end_col = s;
+		update_last_loc1(&c, *s++);
+	}
+	if (!begin_col)
+		begin_col = s;
+	if (!end_col)
+		end_col = s;
+	const char *end_line = s;
+	fprintf(out, "%.*s%s%.*s%s%.*s",
+	        (int)(begin_col - begin_line), begin_line, VT100_BOLD_RED,
+	        (int)(end_col - begin_col), begin_col, VT100_DEFAULT,
+	        (int)(end_line - end_col), end_col);
+}
+
 const char *const CCLERICAL_TYPE_STR[] = {
 	[CCLERICAL_TYPE_UNIT] = "Unit",
 	[CCLERICAL_TYPE_BOOL] = "Bool",

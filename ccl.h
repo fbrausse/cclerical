@@ -29,10 +29,12 @@ struct cc_opts {
 
 void cclprintf(FILE *f, int lvl, const char *fmt, ...);
 
-typedef void backend_f(FILE *,
+struct cclerical_input;
+
+typedef void backend_f(FILE *, const struct cclerical_input *,
                        const struct cclerical_prog *, const ccl_vec_t *);
 
-void export_irram(FILE *out,
+void export_irram(FILE *out, const struct cclerical_input *,
                   const struct cclerical_prog *p, const ccl_vec_t *decls);
 
 #endif

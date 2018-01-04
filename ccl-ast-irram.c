@@ -365,9 +365,10 @@ static void export_irram_prog(FILE *out, const vec_t *decls,
 	cclprintf(out, lvl, "}");
 }
 
-void export_irram(FILE *out,
+void export_irram(FILE *out, const struct cclerical_input *input,
                   const struct cclerical_prog *p, const vec_t *decls)
 {
+	(void)input;
 	fprintf(out, "%s\n", IRRAM_HEADER);
 	for (size_t i=0; i<decls->valid; i++) {
 		struct cclerical_decl *d = decls->data[i];

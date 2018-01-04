@@ -1,11 +1,8 @@
 /* SPDX short identifier: BSD-3-Clause */
-%{
+%code top{
 #include <limits.h>	/* LONG_MAX */
 #include <stdarg.h>	/* va_*() */
 #include <stdio.h>	/* FILE */
-
-typedef struct cclerical_source_loc YYLTYPE;
-#define YYLTYPE		YYLTYPE
 
 #define YYMAXDEPTH LONG_MAX
 #define YYLTYPE_IS_TRIVIAL 1
@@ -52,7 +49,12 @@ static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
 #define EXPR(e,forced,req_pure)	\
 	do { if (!expr(p, e, forced, req_pure, &yyloc)) YYERROR; } while (0)
 
-%}
+}
+
+%code requires {
+typedef struct cclerical_source_loc YYLTYPE;
+#define YYLTYPE YYLTYPE
+}
 
 %parse-param { struct cclerical_parser *p } { void *yyscanner }
 %lex-param { void *yyscanner }
@@ -433,39 +435,6 @@ static void print_loc(FILE *out, const YYLTYPE *locp)
 	}
 }
 
-void update_last_loc1(YYLTYPE *loc, char c);
-
-#define VT100_BOLD_RED	"\x1b[1;31m"
-#define VT100_DEFAULT	"\x1b[0m"
-
-static void highlight(const struct cclerical_input *input, const YYLTYPE *locp)
-{
-	YYLTYPE c = { 1, 1, 1, 1 };
-	const char *s = input->data, *fini = s + input->size;
-	while (c.last_line < locp->first_line && s < fini)
-		update_last_loc1(&c, *s++);
-	if (s >= fini)
-		return;
-	const char *begin_line = s;
-	const char *begin_col = NULL, *end_col = NULL;
-	while (c.last_line <= locp->last_line && s < fini) {
-		if (c.last_line == locp->first_line &&
-		    c.last_column == locp->first_column)
-			begin_col = s;
-		if (c.last_line == locp->last_line &&
-		    c.last_column == locp->last_column)
-			end_col = s;
-		update_last_loc1(&c, *s++);
-	}
-	if (!end_col)
-		end_col = s;
-	const char *end_line = s;
-	fprintf(stderr, "%.*s%s%.*s%s%.*s",
-	        (int)(begin_col - begin_line), begin_line, VT100_BOLD_RED,
-	        (int)(end_col - begin_col), begin_col, VT100_DEFAULT,
-	        (int)(end_line - end_col), end_col);
-}
-
 static void logmsg(const struct cclerical_parser *p, const YYLTYPE *locp,
                    const char *file, int lineno,
                    const char *msg_type, const char *fmt, ...)
@@ -484,7 +453,7 @@ static void logmsg(const struct cclerical_parser *p, const YYLTYPE *locp,
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 	fprintf(stderr, "\n");
-	highlight(p->input, locp);
+	cclerical_highlight(stderr, p->input, locp);
 }
 
 static int lookup_var(struct cclerical_parser *p, char *id,
@@ -581,6 +550,7 @@ static cclerical_type_set_t op_args(enum cclerical_op op)
 	case CCLERICAL_OP_OR:
 		return 1U << CCLERICAL_TYPE_BOOL;
 	}
+	return 0;
 }
 
 static const char *const OP_STRS[] = {
