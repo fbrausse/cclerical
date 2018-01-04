@@ -77,10 +77,6 @@ struct ccl_insn {
 
 void ccl_insn_destroy(struct ccl_insn *in);
 
-struct ccl_basic_block {
-	ccl_insn_id_t begin, end;
-};
-
 /*  type | cnst | art
  * ------+------+-----
  *   U   |  y   | y/n
@@ -131,13 +127,10 @@ struct ccl_tu {
 
 	ccl_vec_t fun_storage;  /* of struct ccl_fun * */
 
-	ccl_vec_t bb_storage;   /* of struct ccl_basic_block * */
-
 	ccl_vec_t compute;      /* of (void *)(uintptr_t)ccl_fun_id_t */
 };
 
 #define CCL_TU_INIT { \
-	CCLERICAL_VECTOR_INIT, \
 	CCLERICAL_VECTOR_INIT, \
 	CCLERICAL_VECTOR_INIT, \
 	CCLERICAL_VECTOR_INIT, \
@@ -148,5 +141,23 @@ void ccl_tu_init(struct ccl_tu *tu, const ccl_vec_t *decls);
 void ccl_tu_fini(const struct ccl_tu *tu);
 
 ccl_fun_id_t ccl_cfg_add(struct ccl_tu *tu, const struct cclerical_prog *p, struct cclerical_source_loc source_loc);
+
+struct ccl_basic_block {
+	ccl_vec_t insns; /* ids of nodes in underlying ccl_tu::insn_storage; of (void *)(uintptr_t)ccl_insn_id_t */
+	ccl_vec_t in, out; /* set(!) of edges (indices into bb_storage);
+	                    * TODO: make this as indices into ccl_cfg_bb::entries;
+	                    * of (void *)(uintptr_t)size_t */
+};
+
+struct ccl_cfg_bb {
+	ccl_vec_t bb_storage; /* of struct ccl_basic_block *; adj-list */
+	ccl_vec_t entries; /* of (void *)(uintptr_t)size_t;
+	                    * mapping insns to bbs:
+	                    * indices into bb_storage s.t. entries[i]
+	                    * corresponds to ccl_tu::insn_storage[i] */
+};
+
+void ccl_cfg_bb_init(struct ccl_cfg_bb *cbb, const struct ccl_tu *cfg);
+void ccl_cfg_bb_fini(struct ccl_cfg_bb *cbb);
 
 #endif

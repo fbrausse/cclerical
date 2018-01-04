@@ -243,7 +243,7 @@ static void ccl_cfg_dump_insn(FILE *out, const struct ccl_tu *tu,
                               ccl_insn_id_t id, int lvl)
 {
 	const struct ccl_insn *in = tu->insn_storage.data[id.id];
-	cclprintf(out, lvl, "insn #%zu: ", id.id);
+	cclprintf(out, 0, "insn #%zu: ", id.id);
 	switch (in->type) {
 	case CCL_INSN_ASGN:
 		ccl_cfg_dump_insn_asgn(out, tu, &in->asgn, lvl+1);
@@ -274,20 +274,48 @@ static void ccl_cfg_dump_insn(FILE *out, const struct ccl_tu *tu,
 	}
 }
 
-static void ccl_cfg_dump(FILE *out, const struct ccl_tu *tu, int lvl)
+static void ccl_cfg_dump(FILE *out, const struct ccl_tu *tu, const struct ccl_cfg_bb *cbb)
 {
-	cclprintf(out, lvl, "cfg decls:\n");
+	cclprintf(out, 0, "cfg decls:\n");
 	for (size_t i=0; i<tu->decl_storage.valid; i++)
-		ccl_cfg_dump_decl(out, tu, (ccl_decl_id_t){ .id = i }, lvl+1);
-	cclprintf(out, lvl, "cfg insns:\n");
+		ccl_cfg_dump_decl(out, tu, (ccl_decl_id_t){ .id = i }, 1);
+	cclprintf(out, 0, "cfg insns:\n");
 	for (size_t i=0; i<tu->insn_storage.valid; i++) {
 		ccl_insn_id_t in_id = { .id = i };
+		ccl_bb_id_t bb_id = { .id = (uintptr_t)cbb->entries.data[in_id.id] };
+		cclprintf(out, 0, "bb#%zu:", bb_id.id);
+		int indent = 2;
 		for (size_t j=0; j<tu->fun_storage.valid; j++) {
 			const struct ccl_fun *f = tu->fun_storage.data[j];
 			if (f->body.id == in_id.id)
-				cclprintf(out, 0, "f#%zu:", j);
+				cclprintf(out, --indent, "f#%zu:", j);
 		}
-		ccl_cfg_dump_insn(out, tu, (ccl_insn_id_t){ .id = i }, lvl+1);
+		cclprintf(out, indent, "");
+		ccl_cfg_dump_insn(out, tu, (ccl_insn_id_t){ .id = i }, 2);
+	}
+	cclprintf(out, 0, "bb graph:\n");
+	for (size_t i=0; i<cbb->bb_storage.valid; i++) {
+		const struct ccl_basic_block *bb = cbb->bb_storage.data[i];
+		if (!bb->insns.valid)
+			continue;
+		cclprintf(out, 1, "bb#%zu:\t", i);
+		for (size_t j=0; j<bb->insns.valid; j++) {
+			ccl_insn_id_t in = { .id = (uintptr_t)bb->insns.data[j] };
+			cclprintf(out, 0, "%s%zu", j ? ", " : "", in.id);
+		}
+		cclprintf(out, 0, "\n");
+		cclprintf(out, 2, "bb-in: ");
+		for (size_t j=0; j<bb->in.valid; j++) {
+			ccl_bb_id_t pred = { .id = (uintptr_t)bb->in.data[j] };
+			cclprintf(out, 0, "%s%zu", j ? ", " : "", pred.id);
+		}
+		cclprintf(out, 0, "\n");
+		cclprintf(out, 2, "bb-out: ");
+		for (size_t j=0; j<bb->out.valid; j++) {
+			ccl_bb_id_t succ = { .id = (uintptr_t)bb->out.data[j] };
+			cclprintf(out, 0, "%s%zu", j ? ", " : "", succ.id);
+		}
+		cclprintf(out, 0, "\n");
 	}
 }
 
@@ -301,7 +329,9 @@ static void export_ssa(FILE *out,
 		ccl_cfg_add(&tu, p, dummy);
 	}
 
-	ccl_cfg_dump(out, &tu, 0);
+	struct ccl_cfg_bb cbb;
+	ccl_cfg_bb_init(&cbb, &tu);
+	ccl_cfg_dump(out, &tu, &cbb);
 
 	// ccl_tu_fini(&tu);
 }

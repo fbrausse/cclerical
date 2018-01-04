@@ -331,3 +331,190 @@ ccl_fun_id_t ccl_cfg_add(struct ccl_tu *tu, const struct cclerical_prog *p, stru
 	cclerical_vector_add(&tu->fun_storage, memdup(&fundat, sizeof(fundat)));
 	return fun;
 }
+
+static void ccl_vec_init2(ccl_vec_t *v, size_t n)
+{
+	cclerical_vector_ensure_size(v, n);
+	memset(v->data, 0, sizeof(*v->data) * n);
+	v->valid = n;
+}
+
+static void ccl_vec_add_id(ccl_vec_t *v, size_t id)
+{
+	cclerical_vector_add(v, (void *)(uintptr_t)id);
+}
+
+static size_t ccl_vec_get_id(const ccl_vec_t *v, size_t i)
+{
+	return (uintptr_t)v->data[i];
+}
+
+static void ccl_vec_set_id(const ccl_vec_t *v, size_t i, size_t id)
+{
+	v->data[i] = (void *)(uintptr_t)id;
+}
+
+static void ccl_vec_addn(ccl_vec_t *v, void **entries, size_t n)
+{
+	cclerical_vector_ensure_size(v, v->valid + n);
+	memcpy(v->data + v->valid, entries, sizeof(*entries) * n);
+	v->valid += n;
+}
+
+static void ccl_vec_swap(ccl_vec_t *a, ccl_vec_t *b)
+{
+	ccl_vec_t c = *a;
+	*a = *b;
+	*b = c;
+}
+
+static void ccl_vec_reset(ccl_vec_t *v)
+{
+	cclerical_vector_fini(v);
+	memset(v, 0, sizeof(*v));
+}
+
+/* --------------------------------------------------------------------------
+ * ccl_cfg_bb
+ * -------------------------------------------------------------------------- */
+
+static struct ccl_basic_block * get_bb(const struct ccl_cfg_bb *cbb,
+                                       ccl_bb_id_t id)
+{
+	return cbb->bb_storage.data[id.id];
+}
+
+static void bb_add_edge(struct ccl_cfg_bb *cbb, ccl_bb_id_t src, ccl_bb_id_t tgt)
+{
+	ccl_vec_add_id(&get_bb(cbb, src)->out, tgt.id);
+	ccl_vec_add_id(&get_bb(cbb, tgt)->in, src.id);
+}
+
+static void bb_add_edges(struct ccl_cfg_bb *cbb, ccl_bb_id_t src, const ccl_vec_t *tgts)
+{
+	size_t n = tgts->valid;
+	struct ccl_basic_block *a = get_bb(cbb, src);
+	ccl_vec_addn(&a->out, tgts->data, n);
+	for (size_t i=0; i<n; i++) {
+		ccl_bb_id_t tgt = { .id = (uintptr_t)tgts->data[i] };
+		ccl_vec_add_id(&get_bb(cbb, tgt)->in, src.id);
+	}
+}
+
+static void make_unique(ccl_vec_t *vec, int (*cmp)(const void *, const void *))
+{
+	qsort(vec->data, vec->valid, sizeof(*vec->data), cmp);
+	size_t j = vec->valid != 0;
+	for (size_t i=1; i<vec->valid; i++) {
+		if (cmp(vec->data + (j-1), vec->data + i))
+			vec->data[j++] = vec->data[i];
+	}
+	vec->valid = j;
+}
+
+static int cmp_uptr(const void *a, const void *b)
+{
+	const uintptr_t *va = a, *vb = b;
+	return *va < *vb ? -1 : *va > *vb ? +1 : 0;
+}
+
+static void bb_fin_edges(struct ccl_cfg_bb *cbb, ccl_bb_id_t vid)
+{
+	struct ccl_basic_block *v = get_bb(cbb, vid);
+	make_unique(&v->out, cmp_uptr);
+	make_unique(&v->in, cmp_uptr);
+}
+
+static void bb_contract(struct ccl_cfg_bb *cbb, ccl_bb_id_t a, ccl_bb_id_t b)
+{
+	struct ccl_basic_block *v = get_bb(cbb, a);
+	struct ccl_basic_block *w = get_bb(cbb, b);
+
+	/* TODO: this is bad... */
+	for (size_t i=0; i<w->out.valid; i++) {
+		ccl_bb_id_t succ = { .id = ccl_vec_get_id(&w->out, i) };
+		struct ccl_basic_block *bb = get_bb(cbb, succ);
+		for (size_t j=0; j<bb->in.valid; j++)
+			if (ccl_vec_get_id(&bb->in, j) == b.id)
+				ccl_vec_set_id(&bb->in, j, a.id);
+		make_unique(&bb->in, cmp_uptr);
+	}
+	ccl_vec_swap(&v->out, &w->out);
+	ccl_vec_reset(&w->out);
+	ccl_vec_reset(&w->in);
+	ccl_vec_addn(&v->insns, w->insns.data, w->insns.valid);
+	for (size_t i=0; i<w->insns.valid; i++) {
+		ccl_insn_id_t in = { .id = ccl_vec_get_id(&w->insns, i) };
+		assert(ccl_vec_get_id(&cbb->entries, in.id) == b.id);
+		ccl_vec_set_id(&cbb->entries, in.id, a.id);
+	}
+	ccl_vec_reset(&w->insns);
+}
+
+void ccl_cfg_bb_init(struct ccl_cfg_bb *cbb, const struct ccl_tu *cfg)
+{
+	size_t n = cfg->insn_storage.valid;
+	memset(cbb, 0, sizeof(*cbb));
+
+	/* make nodes */
+	ccl_vec_init2(&cbb->bb_storage, n);
+	ccl_vec_init2(&cbb->entries, n);
+	for (size_t i=0; i<n; i++) {
+		struct ccl_basic_block bb = {
+			.insns = CCLERICAL_VECTOR_INIT,
+			.in = CCLERICAL_VECTOR_INIT,
+			.out = CCLERICAL_VECTOR_INIT,
+		};
+		ccl_vec_add_id(&bb.insns, i);
+		cbb->bb_storage.data[i] = memdup(&bb, sizeof(bb));
+		ccl_vec_set_id(&cbb->entries, i, i);
+	}
+
+	/* connect nodes */
+	for (size_t i=0; i<n; i++) {
+		const struct ccl_insn *in = get_insn(cfg, (ccl_insn_id_t){ .id = i });
+		ccl_bb_id_t a = { .id = i };
+		switch (in->type) {
+		case CCL_INSN_ASGN:
+			bb_add_edge(cbb, a, (ccl_bb_id_t){ .id = in->asgn.next.id });
+			break;
+		case CCL_INSN_CASE:
+			bb_add_edges(cbb, a, &in->cases.bodies);
+			break;
+		case CCL_INSN_IF:
+			bb_add_edge(cbb, a, (ccl_bb_id_t){ .id = in->branch.if_true.id });
+			bb_add_edge(cbb, a, (ccl_bb_id_t){ .id = in->branch.if_false.id });
+			break;
+		case CCL_INSN_RETURN:
+			break;
+		case CCL_INSN_WHILE:
+			bb_add_edge(cbb, a, (ccl_bb_id_t){ .id = in->loop.body.id });
+			bb_add_edge(cbb, a, (ccl_bb_id_t){ .id = in->loop.next.id });
+			break;
+		}
+	}
+
+	for (size_t i=0; i<n; i++) {
+		ccl_bb_id_t a = { .id = i };
+		bb_fin_edges(cbb, a);
+	}
+
+	/* contract paths */
+	int changes;
+	do {
+		changes = 0;
+		for (ccl_bb_id_t vid = { .id = 0 }; vid.id < n; vid.id++) {
+			struct ccl_basic_block *v = get_bb(cbb, vid);
+			if (v->out.valid != 1)
+				continue;
+			ccl_bb_id_t wid = { .id = ccl_vec_get_id(&v->out, 0) };
+			struct ccl_basic_block *w = get_bb(cbb, wid);
+			if (w->in.valid != 1)
+				continue;
+			/* merge v and w */
+			bb_contract(cbb, vid, wid);
+			changes = 1;
+			vid.id--;
+		}
+	} while (changes);
+}
