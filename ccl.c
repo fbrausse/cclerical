@@ -275,7 +275,8 @@ static void ccl_cfg_dump_insn(FILE *out, const struct ccl_tu *tu,
 	}
 }
 
-static void ccl_cfg_dump(FILE *out, const struct cclerical_input *input,
+static void ccl_cfg_dump(FILE *out, const struct cc_opts *opts,
+                         const struct cclerical_input *input,
                          const struct ccl_tu *tu, const struct ccl_cfg_bb *cbb)
 {
 	(void)input;
@@ -295,6 +296,11 @@ static void ccl_cfg_dump(FILE *out, const struct cclerical_input *input,
 		}
 		cclprintf(out, indent, "");
 		ccl_cfg_dump_insn(out, tu, (ccl_insn_id_t){ .id = i }, 2);
+		if (opts->verbosity > 0) {
+			const struct ccl_insn *t = tu->insn_storage.data[i];
+			cclerical_highlight(out, CCLERICAL_HIGHLIGHT_AUTO,
+			                    input, &t->source_loc);
+		}
 	}
 	cclprintf(out, 0, "bb graph:\n");
 	for (size_t i=0; i<cbb->bb_storage.valid; i++) {
@@ -322,7 +328,8 @@ static void ccl_cfg_dump(FILE *out, const struct cclerical_input *input,
 	}
 }
 
-static void export_ssa(FILE *out, const struct cclerical_input *input,
+static void export_ssa(FILE *out, const struct cc_opts *opts,
+                       const struct cclerical_input *input,
                        const struct cclerical_prog *p, const vec_t *decls)
 {
 	struct ccl_tu tu = CCL_TU_INIT;
@@ -334,7 +341,7 @@ static void export_ssa(FILE *out, const struct cclerical_input *input,
 
 	struct ccl_cfg_bb cbb;
 	ccl_cfg_bb_init(&cbb, &tu);
-	ccl_cfg_dump(out, input, &tu, &cbb);
+	ccl_cfg_dump(out, opts, input, &tu, &cbb);
 
 	// ccl_tu_fini(&tu);
 }
@@ -373,8 +380,6 @@ static struct {
 	},
 };
 
-#define CC_OPTS_INIT { 0, stdout }
-
 static int compile_t17(const struct cclerical_input *in,
                        const struct compiler *cc, const struct cc_opts *opts)
 {
@@ -393,7 +398,7 @@ static int compile_t17(const struct cclerical_input *in,
 		fprintf(stderr, "%s:\n", in->name);
 		pprog(p.prog, 0);
 	}
-	cc->compile(opts->output, in, p.prog, &p.decls);
+	cc->compile(opts->output, opts, in, p.prog, &p.decls);
 
 done:
 	cclerical_parser_fini(&p);
@@ -532,14 +537,14 @@ Options [default]:\n\
   -f FEAT    enable FEAT (to disable, prefix FEAT by 'no-')\n\
   -h         print this help message\n\
   -o OUTPUT  write compiled TGT source file to OUTPUT [stdout]\n\
-  -v         displays the version of ccl\n\
+  -v         increase verbosity\n\
   -x DIALECT choose cclerical DIALECT [T17]; supported: T17\n\
 \n\
 This program is distributed under BSD-3 license.\n\
 Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 			exit(0);
 		case 'o': output = optarg; break;
-		case 'v': DIE(0,"%s\n",CCL_VERSION_STR);
+		case 'v': opts.verbosity++; break;
 		case 'x':
 			if (!strcmp(optarg, "T17")) break;
 			DIE(1,"error: just TGT 'T17' supported for option "
@@ -556,6 +561,9 @@ Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 	if (output && !(opts.output = fopen(output, "wb")))
 		DIE(1,"error opening output file '%s': %s\n",
 		    output, strerror(errno));
+
+	if (opts.verbosity > 0)
+		fprintf(stderr, "ccl v%s\n", CCL_VERSION_STR);
 
 	/* of type struct cclerical_input * */
 	struct cclerical_vector inputs = CCLERICAL_VECTOR_INIT;

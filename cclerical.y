@@ -448,7 +448,7 @@ static void logmsg(const struct cclerical_parser *p, const YYLTYPE *locp,
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 	fprintf(stderr, "\n");
-	cclerical_highlight(stderr, p->input, locp);
+	cclerical_highlight(stderr, CCLERICAL_HIGHLIGHT_AUTO, p->input, locp);
 }
 
 static int lookup_var(struct cclerical_parser *p, char *id,

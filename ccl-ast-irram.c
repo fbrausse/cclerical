@@ -365,7 +365,8 @@ static void export_irram_prog(FILE *out, const vec_t *decls,
 	cclprintf(out, lvl, "}");
 }
 
-void export_irram(FILE *out, const struct cclerical_input *input,
+void export_irram(FILE *out,
+                  const struct cc_opts *opts, const struct cclerical_input *input,
                   const struct cclerical_prog *p, const vec_t *decls)
 {
 	(void)input;

@@ -1,14 +1,77 @@
 /* SPDX short identifier: BSD-3-Clause */
+
+#include <unistd.h>	/* isatty(3p) */
+
 #include "cclerical.h"
 
 #define MAX(a,b)	((a) < (b) ? (b) : (a))
 
-#define VT100_BOLD_RED	"\x1b[1;31m"
-#define VT100_DEFAULT	"\x1b[0m"
+#define CCL_VT100_CSI		"\x1b["
+#define CCL_VT100_MODE(str)	CCL_VT100_CSI str "m"
+
+#define CCL_VT100_RESET		"0"
+#define CCL_VT100_BRIGHT	"1"
+#define CCL_VT100_DIM		"2"
+#define CCL_VT100_UNDERL	"4"
+#define CCL_VT100_BLINK		"5"
+#define CCL_VT100_REVERSE	"7"
+#define CCL_VT100_HIDDEN	"8"
+#define CCL_VT100_UNDERL_OFF	"24"
+#define CCL_VT100_BLINK_OFF	"25"
+#define CCL_VT100_REVERSE_OFF	"27"
+
+#define CCL_VT100_COL_FG(c)	"3" c
+#define CCL_VT100_COL_BG(c)	"4" c
+
+#define CCL_VT100_BLACK		"0"
+#define CCL_VT100_RED		"1"
+#define CCL_VT100_GREEN		"2"
+#define CCL_VT100_YELLOW	"3"
+#define CCL_VT100_BLUE		"4"
+#define CCL_VT100_MAGENTA	"5"
+#define CCL_VT100_CYAN		"6"
+#define CCL_VT100_WHITE		"7"
+
+#define CCL_VT100_ERROR	\
+	CCL_VT100_MODE(CCL_VT100_BRIGHT ";" CCL_VT100_COL_FG(CCL_VT100_RED))
+#define CCL_VT100_MODE_DEFAULTS	\
+	CCL_VT100_MODE(CCL_VT100_RESET)
+
+static void highlight_ascii(FILE *out,
+                            const char *begin_line, const char *begin_col,
+                            const char *end_line, const char *end_col)
+{
+	for (; begin_line < begin_col; begin_line++)
+		switch (*begin_line) {
+		case '\r':
+		case '\n':
+		case '\t': fputc(*begin_line, out); break;
+		default: fputc(' ', out); break;
+		}
+	/* TODO: underline with carets */
+	fprintf(out, "%.*s", (int)(end_col - begin_col), begin_col);
+	for (; end_col < end_line; end_col++)
+		switch (*end_col) {
+		case '\r':
+		case '\n':
+		case '\t': fputc(*end_col, out); break;
+		default: fputc(' ', out); break;
+		}
+}
+
+static void highlight_vt100(FILE *out,
+                            const char *begin_line, const char *begin_col,
+                            const char *end_line, const char *end_col)
+{
+	fprintf(out, "%.*s%s%.*s%s%.*s",
+	        (int)(begin_col - begin_line), begin_line, CCL_VT100_ERROR,
+	        (int)(end_col - begin_col), begin_col, CCL_VT100_MODE_DEFAULTS,
+	        (int)(end_line - end_col), end_col);
+}
 
 void update_last_loc1(struct cclerical_source_loc *loc, char c);
 
-void cclerical_highlight(FILE *out,
+void cclerical_highlight(FILE *out, enum cclerical_highlight_mode mode,
                          const struct cclerical_input *input,
                          const struct cclerical_source_loc *locp)
 {
@@ -34,10 +97,18 @@ void cclerical_highlight(FILE *out,
 	if (!end_col)
 		end_col = s;
 	const char *end_line = s;
-	fprintf(out, "%.*s%s%.*s%s%.*s",
-	        (int)(begin_col - begin_line), begin_line, VT100_BOLD_RED,
-	        (int)(end_col - begin_col), begin_col, VT100_DEFAULT,
-	        (int)(end_line - end_col), end_col);
+
+	if (mode == CCLERICAL_HIGHLIGHT_AUTO && isatty(fileno(out)))
+		mode = CCLERICAL_HIGHLIGHT_VT100;
+	switch (mode) {
+	case CCLERICAL_HIGHLIGHT_AUTO: /* fall through */
+	case CCLERICAL_HIGHLIGHT_ASCII:
+		highlight_ascii(out, begin_line, begin_col, end_line, end_col);
+		break;
+	case CCLERICAL_HIGHLIGHT_VT100:
+		highlight_vt100(out, begin_line, begin_col, end_line, end_col);
+		break;
+	}
 }
 
 const char *const CCLERICAL_TYPE_STR[] = {

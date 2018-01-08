@@ -24,7 +24,13 @@ struct cclerical_source_loc {
 	int last_line, last_column;
 };
 
-void cclerical_highlight(FILE *out,
+enum cclerical_highlight_mode {
+	CCLERICAL_HIGHLIGHT_AUTO,
+	CCLERICAL_HIGHLIGHT_ASCII,
+	CCLERICAL_HIGHLIGHT_VT100,
+};
+
+void cclerical_highlight(FILE *out, enum cclerical_highlight_mode mode,
                          const struct cclerical_input *input,
                          const struct cclerical_source_loc *locp);
 

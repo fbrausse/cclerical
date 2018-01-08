@@ -23,18 +23,24 @@ enum {
 
 struct cc_opts {
 	int dump_parse_tree;
+	int verbosity;
+	enum cclerical_highlight_mode highlight;
 	FILE *output;
 	unsigned feat[OPT_FEAT_N]; /* bitmask */
 };
+
+#define CC_OPTS_INIT { 0, 0, CCLERICAL_HIGHLIGHT_AUTO, stdout }
 
 void cclprintf(FILE *f, int lvl, const char *fmt, ...);
 
 struct cclerical_input;
 
-typedef void backend_f(FILE *, const struct cclerical_input *,
+typedef void backend_f(FILE *, const struct cc_opts *opts,
+                       const struct cclerical_input *,
                        const struct cclerical_prog *, const ccl_vec_t *);
 
-void export_irram(FILE *out, const struct cclerical_input *,
+void export_irram(FILE *out,
+                  const struct cc_opts *opts, const struct cclerical_input *,
                   const struct cclerical_prog *p, const ccl_vec_t *decls);
 
 #endif
