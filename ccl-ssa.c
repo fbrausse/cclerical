@@ -27,7 +27,7 @@ static struct ccl_insn_asgn * get_asgn(const struct ccl_tu *tu,
 static struct ccl_decl * ccl_decl_create(const struct cclerical_decl *d)
 {
 	struct ccl_decl r = {
-		.value_type           = d->value_type,
+		.value_type           = (enum ccl_type)d->value_type,
 		.is_constant          = d->value_type == CCLERICAL_TYPE_UNIT,
 		.origin_is_artificial = 0,
 		.origin               = { .org = d, },
@@ -69,7 +69,7 @@ ccl_decl_id_t ccl_tu_decl_add_art(struct ccl_tu *tu, enum cclerical_type t,
 {
 	ccl_decl_id_t r = ccl_tu_decl_add(tu);
 	struct ccl_decl *lhs = get_decl(tu, r);
-	lhs->value_type           = t;
+	lhs->value_type           = (enum ccl_type)t;
 	lhs->is_constant          = t == CCLERICAL_TYPE_UNIT;
 	lhs->origin_is_artificial = 1;
 	lhs->origin.art           = origin_id;
@@ -125,7 +125,7 @@ static ccl_insn_id_t ssa_asgn_new(struct ccl_tu *tu,
 		/* cnsts have not been added to decls yet, do so now */
 		cnst_id = ccl_tu_decl_add(tu); /* new variable */
 		struct ccl_decl *cnst = get_decl(tu, cnst_id);
-		cnst->value_type = e->result_type;
+		cnst->value_type = (enum ccl_type)e->result_type;
 		cnst->is_constant = 1;
 		cnst->origin_is_artificial = 0;
 		cnst->origin.cnst = &e->cnst;
@@ -141,7 +141,7 @@ static ccl_insn_id_t ssa_asgn_new(struct ccl_tu *tu,
 	ccl_insn_id_t in_asgn_id = ccl_tu_insn_add_asgn(tu, e->source_loc, asgn_type, lhs_id, next);
 	if (asgn_to) {
 		struct ccl_decl *lhs = get_decl(tu, lhs_id);
-		assert(lhs->value_type == e->result_type);
+		assert(lhs->value_type == (enum ccl_type)e->result_type);
 		assert(lhs->is_constant || (e->result_type != CCLERICAL_TYPE_UNIT));
 	}
 
@@ -207,7 +207,8 @@ ccl_insn_id_t ccl_cfg_add_expr(struct ccl_tu *tu,
                                ccl_insn_id_t next,
                                const ccl_decl_id_t *asgn_to)
 {
-	assert(!asgn_to || get_decl(tu, *asgn_to)->value_type == e->result_type);
+	assert(!asgn_to || (get_decl(tu, *asgn_to)->value_type
+	                    == (enum ccl_type)e->result_type));
 	switch (e->type) {
 	/* return value is of type CCL_INSN_ASGN, next will be copied */
 	case CCLERICAL_EXPR_ASGN: {

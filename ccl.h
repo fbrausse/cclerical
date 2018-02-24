@@ -29,7 +29,7 @@ struct cc_opts {
 	unsigned feat[OPT_FEAT_N]; /* bitmask */
 };
 
-#define CC_OPTS_INIT { 0, 0, CCLERICAL_HIGHLIGHT_AUTO, stdout }
+#define CC_OPTS_INIT { 0, 0, CCLERICAL_HIGHLIGHT_AUTO, stdout, {0}, }
 
 void cclprintf(FILE *f, int lvl, const char *fmt, ...);
 

@@ -1,7 +1,7 @@
 
 LEXFLAGS = --batch
 YFLAGS = -v
-CFLAGS = -Wall -Wextra -O0 -g
+CFLAGS = -Wall -Wextra -O0 -g -Wpedantic
 CCL_VERSION = 0.1
 
 OBJS = \

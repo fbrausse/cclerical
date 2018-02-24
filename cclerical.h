@@ -226,7 +226,7 @@ struct cclerical_decl {
 	char *id;
 	struct cclerical_source_loc source_loc;
 	union {
-		struct {} var;
+	//	struct {} var;
 		struct {
 			/* if body: of type (void *)(uintptr_t)cclerical_id_t
 			 * else   : of type (void *)(uintptr_t)cclerical_type */
@@ -238,7 +238,8 @@ struct cclerical_decl {
 };
 
 #define CCLERICAL_DECL_INIT_VAR(value_type,id,loc) \
-	{ CCLERICAL_DECL_VAR, value_type, id, loc, /*.var = {},*/ }
+	{ CCLERICAL_DECL_VAR, value_type, id, loc, \
+	  .fun = { CCLERICAL_VECTOR_INIT, NULL } /*.var = {}*/, }
 
 #define CCLERICAL_DECL_INIT_FUN(value_type,id,loc,args,body) \
 	{ CCLERICAL_DECL_FUN, value_type, id, loc, .fun = { args, body }, }

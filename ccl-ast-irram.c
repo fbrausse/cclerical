@@ -369,6 +369,7 @@ void export_irram(FILE *out,
                   const struct cc_opts *opts, const struct cclerical_input *input,
                   const struct cclerical_prog *p, const vec_t *decls)
 {
+	(void)opts;
 	(void)input;
 	fprintf(out, "%s\n", IRRAM_HEADER);
 	for (size_t i=0; i<decls->valid; i++) {
