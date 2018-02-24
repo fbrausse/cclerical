@@ -10,7 +10,7 @@ OBJS = \
 	ccl-ast-irram.o \
 	cclerical.tab.o \
 	cclerical.lex.o \
-	cclerical.o
+	cclerical.o \
 
 .PHONY: clean examples
 

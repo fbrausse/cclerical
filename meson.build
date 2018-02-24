@@ -1,6 +1,8 @@
 project('cclerical', 'c'
        , license : 'BSD-3'
-       , version : '0.1')
+       , version : '0.1'
+       , meson_version: '>=0.43'
+       )
 ccllexer = custom_target( 'cclerical.lex'
                         , output : [ 'cclerical.lex.c'
                                    , 'cclerical.lex.h'
