@@ -1,0 +1,469 @@
+\documentclass[a4paper,11pt,parskip=half]{scrartcl}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[colorlinks=true]{hyperref}
+\usepackage[textsize=footnotesize]{todonotes}
+\usepackage{amsmath,amssymb,mathtools,cleveref,multirow,stmaryrd}
+
+\title{CCL -- compiling Clerical}
+\author{Franz Brauße\footnote{%
+	University of Trier, 54286 Trier;
+	E-Mail: \href{mailto:brausse@informatik.uni-trier.de}%
+	                   {brausse@informatik.uni-trier.de};
+	supported by the German Research Foundation (DFG),
+	project WERA, grant MU 1801/5-1}}
+
+\newcommand*\iRRAM{\texttt{iRRAM}}
+\newcommand*\lang[1]{\text`\textcolor{blue}{\text{\ttfamily{#1}}}\text'{}}
+\newcommand*\optional[1]{#1\ensuremath{{}_{\textrm{opt}}}}
+
+\newcommand*\mto{\rightrightarrows}
+%\newcommand*\pto{\rightharpoonup}
+% requires mathabx, but that changes all common math symbols
+%\newcommand*\pmto{\rightrightharpoons}
+\newcommand*\dom{\operatorname{dom}}
+
+% \ctxval{\gamma}{e} is the value of e evaluated in context \gamma
+% \ctxval{e} is the value of e evaluated in context \gamma
+\newcommand*\ctxval[2][\gamma]{\llbracket{#2}\rrbracket_{#1}}
+\newcommand*\sctype[2][\sigma]{\operatorname{type}_{#1}(#2)}
+\newcommand*\scro{\mathtt{ro}}
+\newcommand*\scrw{\mathtt{rw}}
+
+\newenvironment{notyet}{\color{violet}}{\color{black}}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+CCL is a compiler for the language Clerical targeting the \iRRAM, Kirk and
+possibly other ERC implementations. This document is a description of the
+precise language and CCL's features.
+\end{abstract}
+
+\section{Concepts}
+\subsection{Expressions}
+The language is constructed by means of the grammar summarized in
+\cref{fig:grammar}. For the complete grammar refer to the file
+\texttt{src/cclerical.y}.
+\begin{figure}
+% cut -c7- grammar | sed -r 's#\$?@[0-9]+(:.*)?##g;s#"([^"]*)"|'"'([^']*)'"'#\\lang{\1\2}#g;s#\{\^\}#{\\^{}}#g;s#(^|\}|\s)([a-zA-Z_0-9]+)#\1\\emph\{\2\}#g;s#([$%_&])#\\\1#g;s#^([^ \t]+):#\1\\coloneqq\{\}\&#;s#\s+\|#\t|~\&#;s#\}(\s*[\\{])#\}~\1#g;' | cat -s | sed -r 's#(.)$#\1 \\\\#;s#^$#%#' | xclip -i
+% then modified:
+% - remove pure_expr
+% - collect binary operators
+% - use regexp to collapse lists:
+%   - fun_call_param_spec, fun_call_params -> IDENT()
+%   - tu, prog
+%   - cases -> 'case' expr
+%   - var_init_list -> 'var' expr
+%   - {ext_,}fun_decl_params{,_spec} -> fun_decl
+% - add IDENT
+\begin{align*}
+\emph{tu}~\coloneqq{}& \emph{toplevel}^* \\
+%
+\emph{toplevel}~\coloneqq{}& \emph{fun\_decl} \\
+	|~& \lang{do}~ \emph{prog} \\
+%
+\emph{fun\_decl}~\coloneqq{}& \lang{function}~ \emph{IDENT}~  \lang{(}~ \optional{(\emph{type}~ \emph{IDENT}~ (\lang{,}~ \emph{type}~ \emph{IDENT})^*)}~ \lang{)}~ \lang{:}~ \emph{prog} \\
+	|~& \lang{external}~ \emph{IDENT}~ \lang{(}~ \optional{(\emph{type}~ (\lang{,}~ \emph{type})^*)}~ \lang{)}~ \lang{->}~ \emph{utype} \\
+%
+\emph{prog}~\coloneqq{}& \emph{expr}~(\lang{;}~ \emph{expr})^* \\
+%
+\emph{expr}~\coloneqq{}& \emph{expr}~ \emph{bin\_op}~ \emph{expr} \\
+	|~& \lang{!}~ \emph{expr} \\
+	|~& \lang{-}~ \emph{expr} \\
+	|~& \emph{IDENT}~ \lang{(}~ \optional{(\emph{expr}~(\lang,~\emph{expr})^*)}~ \lang{)} \\
+	|~& \emph{IDENT} \\
+	|~& \emph{CONSTANT} \\
+	|~& \lang{lim}~ \emph{IDENT}~  \lang{=>}~ \emph{expr} \\
+	|~& \lang{(}~ \emph{prog}~ \lang{)} \\
+	|~& \lang{case}~ \emph{expr}~ \lang{=>}~ \emph{expr}~ (\lang{||}~ \emph{expr}~ \lang{=>}~ \emph{expr})^*~ \lang{end} \\
+	|~& \lang{if}~ \emph{expr}~ \lang{then}~ \emph{expr}~ \optional{(\lang{else}~ \emph{expr})} \\
+	|~& \lang{var}~  \emph{var\_init}~ (\lang{and}~ \emph{var\_init})^*~ \lang{in}~ \emph{expr} \\
+	|~& \emph{IDENT}~ \lang{:=}~ \emph{expr} \\
+	|~& \lang{skip} \\
+	|~& \lang{while}~ \emph{expr}~ \lang{do}~ \emph{expr} \\
+%
+\emph{var\_init}~\coloneqq{}& \emph{IDENT}~ \lang{:=}~ \emph{expr}
+	\begin{notyet}~\optional{(\lang:~\emph{type})}\end{notyet}
+	\\
+%
+\emph{bin\_op}~\coloneqq{}&
+	\lang{+}~|~\lang{-}~|~\lang{*}~|~\lang{/}~|~\lang{\^{}}~|~\lang{<}~
+	|~\lang{>}~|~\lang{|}~|~\lang{\&}~|~\lang{/=}
+	\begin{notyet}~|~\lang{<=}~|~\lang{>=}~|~\lang{==}\end{notyet}
+	\\
+%
+\emph{type}~\coloneqq{}& \lang{Bool}~|~ \lang{Int}~|~ \lang{Real} \\
+%
+\emph{utype}~\coloneqq{}& \emph{type}~|~ \lang{Unit} \\
+%
+\emph{IDENT}~\coloneqq{}& [\texttt{a-z\_}][\texttt{a-zA-Z0-9\_}]^*\texttt'^* \\
+%
+\emph{CONSTANT}~\coloneqq{}& \emph{NAT}~|~\emph{FRAC}
+\end{align*}
+\caption{Summarized grammar of CCL; the specification of the usual precedence
+	and associativity of operators and \lang{then}/\lang{else} as well as
+	the format of the literal constants \emph{NAT} and \emph{FRAC} has been
+	omitted.}
+\label{fig:grammar}
+\end{figure}
+
+
+\subsection{Types}
+Clerical has 3 built-in named types (\cref{fig:named-types}) in addition to --
+for sake of reasoning about syntactical constructs --
+two unnamed types (\cref{fig:unnamed-types}). The types \lang{Integer}%
+\begin{notyet}, \lang{Rational}\end{notyet} and
+\lang{Real} belong to the set of \emph{arithmetical types}. The types
+\lang{Boolean} and \lang{Kleenean} form the set of \emph{logical types}.
+
+Let
+\[ \dom(\tau)=\begin{cases}
+	\{\lang{False},\lang{True}\},&\text{if}~\tau=\lang{Boolean} \\
+	\{\lang{False},\lang{True},\bot\},&\text{if}~\tau=\lang{Kleenean} \\
+	\mathbb Z,&\text{if}~\tau=\lang{Integer} \\
+\begin{notyet}
+	\mathbb Q,
+\end{notyet} &
+\begin{notyet}
+	\text{if}~\tau=\lang{Rational}
+\end{notyet} \\
+	\mathbb R,&\text{if}~\tau=\lang{Real}
+\end{cases} \]
+
+The set of primitive types is
+$\overline T=\{\lang{Boolean},\lang{Kleenean},\lang{Integer},
+\begin{notyet}
+\lang{Rational},
+\end{notyet}\lang{Real}\}$.
+
+The set of all types is $T=C\cup F$ where $C$ is called the set
+of \emph{compound types} and $F$ is the set of \emph{function types}.
+Both are constructed recursively:
+\begin{itemize}
+\item $\overline T\subseteq C$.
+\begin{notyet}
+\item $A\in C^+\implies A\in C$ and $\dom(A)=\bigtimes_{i=1,\ldots,|A|} A_i$
+\item $A,B\in T\implies \{A\to B,{\subseteq}A\to B,A\mto B,{\subseteq}A\mto B\}\subseteq F$.
+\end{notyet}
+\end{itemize}
+The empty word over $C$ is called $\texttt{Unit}$ and
+$\dom(\texttt{Unit})=\{\star\}$.
+
+\subsection{Context}
+A \emph{scope} is a finite sequence $\sigma\in(I\times T\times\{\scro,\scrw\})^*$
+where $I$ are \emph{identifiers}, i.e.\ words over $\Sigma$,
+and $T$ is the set of types. $\scro$ and $\scrw$ specify whether a location is
+read-only and read-writable, respectively.
+Let $\sigma_I^{-1}(x)=\{i:\sigma_i=(x,\tau),\tau\in T\}$ denote the set of
+indices of an identifier $x\in I$ in $\sigma$.
+
+Given a scope $\sigma=(x_i,\tau_i,r_i)_{i=1,\ldots,k}$,
+the set of all \emph{contexts valid on $\sigma$} is
+\[ \Gamma_\sigma
+  =\{(v_i)_{i=1,\ldots,k}:v_i\in\dom(\tau_i)~\text{for}~i\in\{1,\ldots,k\}\}
+  \text.
+\]
+
+In order to define semantics of the constructs of the language,
+in the following, given a scope $\sigma$, a well-typed expression $e$
+interpreted in a context $\gamma\in\Gamma_\sigma$ has a value of the type of $e$,
+in symbols $\ctxval e\in\dom(\sctype e)$. Only assignments $c$
+modify contexts, $\gamma(c)\in\Gamma_\sigma$;
+for all other expressions $d$ it holds that $\gamma(d)=\gamma$.
+
+% TODO: it is not *often* necessary, just for assignment; move to assignment
+In the following it is often necessary to replace a value $\gamma_k$ in a
+context $\gamma\in\Gamma_\sigma$ with a value $v$ where $k$ refers to the last
+declaration of a variable with identifier $x$.
+We thus define the shortcut notation
+$\gamma[x/v]\coloneqq
+(\gamma_1,\ldots,\gamma_{k-1},v,\gamma_{k+1},\ldots,\gamma_{|\sigma|})$
+if $x$ is an identifier, $\sigma_I^{-1}(x)\neq\varnothing$,
+$k\coloneqq\max\sigma_I^{-1}(x)$ and $\sigma_k=(x,\operatorname{type}(v),\scrw)$,
+otherwise $\gamma[x/v]$ is undefined.
+
+An expression $e$ is \emph{pure} if for all contexts $\gamma$ s.t.\ $e$ is valid
+in $\gamma$, $\gamma(e)=\gamma$.
+
+\subsection{Variables}
+Variables identified by $x\in\Sigma^*$ declared in a scope $\sigma$ are typed,
+i.e.\ $\operatorname{type}_\sigma(v)\in T$.
+
+\subsection{Type conversions}
+There are no implicit type conversions. Explicit conversions between
+\emph{compatible types} are provided as functions in the standard library.
+
+\subsection{Operators}
+In general, only assignment $x~\lang{:=}~e$ and expressions containing it are
+im-pure expressions.
+Specifically for function calls, the arguments must be pure expressions as
+must be the operands to all operators.
+% In CCL we can easily check this through the type of an expression.
+
+\subsubsection{Arithmetical operators}
+Unary operators $\lang+,\lang-:A\to A$ and
+binary operators $\lang+,\lang-,\lang*,\lang/,\lang{\^{}}:A\times A\to A$
+are built-in for arithmetical types $A$.
+$\lang/$ on \lang{Integer} truncates the result.
+
+Formally, for a scope $\sigma$ and well-typed expressions $x,y$
+an expression $c_\theta\coloneqq x\mathbin\theta y$ with
+$\theta\in\{\lang+,\lang-,\lang*,\lang/,\lang{\^{}}\}$ is \emph{well-typed}
+if the operands have the same arithmetical type
+$\tau\in T$ in $\sigma$,
+i.e.\ $\operatorname{type}_\sigma(x)=\tau=\operatorname{type}_\sigma(y)$.
+Then $\operatorname{type}_\sigma(c_\theta)=\tau$ and -- if $x,y$ are pure --, given
+a context $\gamma\in\Gamma_\sigma$,
+\[ \ctxval{c_\theta}\coloneqq\begin{cases}
+      \ctxval x+\ctxval y,&\text{if}~\theta=\lang+ \\
+      \ctxval x-\ctxval y,&\text{if}~\theta=\lang- \\
+      \ctxval x\cdot\ctxval y,&\text{if}~\theta=\lang* \\
+      \operatorname{trunc}(\ctxval x/\ctxval y),&\text{if}~\theta=\lang/~\text{and}~\tau=\lang{Integer} \\
+      \ctxval x/\ctxval y,&\text{if}~\theta=\lang/~\text{and}~\tau\neq\lang{Integer} \\
+      \ctxval x^{\ctxval y},&\text{if}~\theta=\lang{\^{}}
+   \end{cases} \]
+where $\operatorname{trunc}:n\mapsto\operatorname{sgn}(n)\cdot\lfloor|n|\rfloor$.
+
+\subsubsection{Logical operators}
+Unary operator $\lang!:B\to B$ and
+binary operators $\lang\&,\lang|,\lang{\^{}}:B\times B\to B$
+are built-in for logical types $B$, i.e.\ the expressions
+$c\in\{\lang!x,x\mathbin\theta y\}$
+for $\theta\in\{\lang\&,\lang|,\lang{\^{}}\}$ and expressions $x,y$
+in a scope $\sigma$ are well-typed if $\sctype x=\sctype y\in B$.
+Then $\sctype c\coloneqq\sctype x$. Given a context $\gamma\in\Gamma_\sigma$, 
+For $\sctype c=\lang{Boolean}$, $\ctxval c$ results from classical logic.
+For $\sctype c=\lang{Kleenean}$, $\ctxval c$ results from Kleene's
+three-valued logic and is summarized in \cref{tab:kleene-ops}.
+
+\subsubsection{Comparison operators}
+There are built-in operators
+$\lang{==},\lang{!=}:\overline T\times\overline  T\to R$
+for primitive types $\overline T$
+and $R$ according to \cref{tab:cmp-ops-types}.
+
+\subsection{Declarations}
+\subsubsection{Variable declarations}
+New variables are introduced by declaring and initializing them and they are
+valid within an expression. After that the \emph{scope} of the variable is left
+and it is no more accessible. Syntax:
+\begin{align*}
+	\emph{var-decl}\coloneqq{}&
+		\lang{var}~\emph{ident}~\lang{:=}~\emph{expr}
+		~\optional{\emph{var-decl-and-clause}}~\lang{in}~\emph{expr} \\
+	\emph{var-decl-and-clause}\coloneqq{}&
+		\lang{and}~\emph{ident}~\lang{:=}~\emph{expr}
+		~\optional{\emph{var-decl-and-clause}}
+\end{align*}
+The sequence
+\[\lang{var}~x_1~\lang{:=}~e_1~\lang{and}~x_2~\lang{:=}~e_2~\lang{in}~e\]
+is equivalent to
+\[\lang{var}~x_1~\lang{:=}~e_1~\lang{in}~\lang(
+~\lang{var}~x_2~\lang{:=}~e_2~\lang{in}~e~\lang)\text.\]
+
+Given a scope $\sigma$, an identifier $x$
+and a pure expression $e$ with $\sctype e\neq\lang{Unit}$, then the expression
+$c\coloneqq\lang{var}~x~\lang{:=}~e~\lang{in}~f$ is well-typed and
+$\sctype c\coloneqq\sctype[\sigma'] f$
+where $\sigma'\coloneqq(\sigma_1,\ldots,\sigma_{|\sigma|},(x,\sctype e,\scrw))$.
+If $\gamma\in\Gamma_\sigma$ is a context, let
+$\gamma'\coloneqq(\gamma_1,\ldots,\gamma_{|\sigma|},\ctxval e)\in\Gamma_{\sigma'}$,
+then $\ctxval c\coloneqq\ctxval[\gamma'] f$.
+
+\subsubsection{Function declarations}
+\begin{itemize}
+\item
+	External functions are provided in form of a \emph{library}, that is,
+	a precompiled object file containing symbols corresponding to the
+	function described. Syntax:
+	\begin{align*}
+		\emph{ext-fun-decl}\coloneqq{}&
+			\lang{external}~\emph{ident}
+			~\lang(~\optional{\emph{ext-argument-list}}~\lang)
+			~\lang{->}~\emph{type} \\
+		\emph{ext-argument-list}\coloneqq{}&
+			\emph{type}~\optional{\emph{ident}}
+			~(\lang,~\emph{type}~\optional{\emph{ident}})^*
+	\end{align*}
+\item
+	(Internal) function declarations attach code to an identifier with
+	parameters. Syntax:
+	\begin{align*}
+		\emph{fun-decl}\coloneqq{}&
+			\lang{function}~\emph{ident}
+			~\lang(~\optional{\emph{argument-list}}~\lang)
+			~\optional{(\lang{->}~\emph{type})}~\lang:~\emph{expr} \\
+		\emph{argument-list}\coloneqq{}&
+			\emph{type}~\emph{ident}~(\lang,~\emph{type}~\emph{ident})^*
+	\end{align*}
+\end{itemize}
+
+\subsection{Core language constructs}
+\subsubsection{Assignment}
+Syntax: $\emph{ident}~\lang{:=}~\emph{expr}$
+
+Let $c\coloneqq x~\lang{:=}~e$ in context $\gamma\in\Gamma_\sigma$.
+If $e$ is a pure expression
+and $\sigma_I^{-1}(x)\neq\varnothing$, let $j=\max\sigma_I^{-1}(x)$ and
+if $\operatorname{type}(e)=\tau$ where $(x,\tau,\scrw)=\sigma_j$, then
+$\gamma(c)\coloneqq\gamma[x/\operatorname{value}(e)]$.
+
+\subsubsection{Function calls}
+Syntax:
+$\emph{ident}~\lang(~(\emph{expr}~\optional{(\lang,~\emph{expr})^*)}~\lang)$
+
+Let $c\coloneqq f~\lang(~e_1\lang,~\ldots\lang,~e_n~\lang)$.
+
+A function's body can only refer to (global) identifiers fully defined
+previously, thus preventing recursion.
+
+\subsubsection{Loops}
+Syntax: $\lang{while}~\emph{expr}~\lang{do}~\emph{expr}$
+
+Let $c\coloneqq\lang{while}~e~\lang{do}~f$.
+If $e$ is a \emph{pure} expression with $\operatorname{type}(e)=\texttt{Bool}$
+and $\operatorname{type}(f)=\texttt{Unit}$
+then $\operatorname{type}(c)=\texttt{Unit}$.
+
+\subsubsection{Limits}
+Syntax: $\lang{lim}~\emph{ident}~\lang{=>}~\emph{expr}$
+
+Let $c\coloneqq\lang{lim}~n~\lang{=>}~e$ and $\sigma$ be a scope.
+Then $c$ is well-typed if $e$ is a pure expression in
+$\sigma'\coloneqq(\sigma_1,\ldots,\sigma_{|\sigma|},(n,\lang{Int},\scro))$.
+Let $\gamma\in\Gamma_\sigma$ be a context and
+let $s_n\coloneqq\ctxval[(\gamma_1,\ldots,\gamma_{|\sigma|},n)] e$ be the
+value of the expression $e$ for a fixed $n\in\mathbb N$. If
+$\forall n,m\in\mathbb N:|s_n-s_m|\leq2^{-n}+2^{-m}$
+then $\ctxval c\coloneqq\lim_{n\to\infty} s_n$.
+
+\subsubsection{Multi-valued choice}
+Syntax:
+$\lang{case}~(\optional{\lang{||}}~\emph{expr}~\lang{=>}~\emph{expr})^*
+~\lang{end}$
+
+Let $c\coloneqq\lang{case}~(\lang{||}~e_i~\lang{=>}~f_i)_{i=1,\ldots,n}~\lang{end}$.
+If $\operatorname{type}(e_i)\in\{\texttt{Boolean},\texttt{Kleenean}\}$
+and $\operatorname{type}(f_i)=\tau$ for all $i=1,\ldots,n$
+then $\operatorname{type}(c)\coloneqq\tau$ and
+$\operatorname{value}(c)\in\{\operatorname{value}(f_i):
+\operatorname{value}(e_i)=\lang{True},i\in\{1,\ldots,n\}\}$
+holds.
+
+
+\subsection{Syntactical sugar}
+\subsubsection{If-then-else}
+\begin{itemize}
+\item
+	$\lang{if}~b~\lang{then}~c$ corresponds to
+	$\lang{case}~b~\lang{==}~\lang{True}~\lang{=>}~c~\lang{end}$.
+\item
+	$\lang{if}~b~\lang{then}~c_1~\lang{else}~c_2$ corresponds to
+	$\lang{case}~b~\lang{==}
+	~\lang{False}~\lang{=>}~c_2~\lang{||}
+	~b~\lang{==}~\lang{True}~\lang{=>}~c_1~\lang{end}$.
+\end{itemize}
+
+\subsection{Standard Library}
+The CCL standard library provides the following functions.
+\begin{itemize}
+\item Type conversion $\mathbb Z\to\mathbb R$:
+	$\lang{external real(Integer) -> Real}$
+%\item $\mathbb Q\to\mathbb R$: $\lang{external real(Rational) -> Real}$
+%\item $\mathbb Z\to\mathbb Q$: $\lang{external rational(Integer) -> Rational}$
+\item Absolute value: $\lang{external abs(Real) -> Real}$
+\item Multi-valued boundedness test: $\lang{external bounded(Real, Integer) -> Boolean}$
+\end{itemize}
+
+
+\section{Syntax}
+\subsection{Grammar}
+
+
+\section{Semantics}
+
+\newpage
+\appendix
+\section{}
+
+\begin{figure}
+\begin{description}
+\item[\texttt{Bool}]
+	Corresponds to the set $\mathbb B=\{0,1\}$.
+	Named constants \lang{False} and \lang{True} correspond to $0$ and
+	$1$, respectively.
+\item[\texttt{Integer}]
+	Corresponds to the set $\mathbb Z$. Literals matching one of the PCREs
+	\[
+		\verb#(0|[1-9][0-9]*)# \quad \verb#0[xX][0-9a-fA-F]+# \quad
+		\verb#0[bB][0-1]+# \quad \verb#0(0|[1-7][0-9]*)#
+	\]
+	are interpreted as integers written in decimal, hexadecimal, binary or
+	octal notation.
+\item[\texttt{Real}]
+	Corresponds to the set $\mathbb R$. Literals matching one of the PCREs
+	\[ \verb#((0|[1-9][0-9]*)\.|\.[0-9])[0-9]*([eE][+-]?[0-9]+)?# \]
+	\[ \verb#0[xX]([0-9a-fA-F]+\.|\.[0-9a-fA-F])[0-9a-fA-F]*([eE][+-]?[0-9a-fA-F]+)?# \]
+	are interpreted as rational numbers in fractional decimal or hexadecimal
+	notation.
+\end{description}
+\caption{Named types.}
+\label{fig:named-types}
+\end{figure}
+
+\begin{figure}
+\begin{description}
+\item[\texttt{Unit}]
+	Corresponds to the singleton set $\{\star\}$.
+	There are no named constants.
+\item[\texttt{Kleenean}]
+	Corresponds to the set $\mathbb K=\{0,1,\bot\}$.
+	There are no named constants.
+\end{description}
+\caption{Unnamed types.}
+\label{fig:unnamed-types}
+\end{figure}
+
+\begin{table}
+\centering
+\begin{tabular}{c|c}
+	$a$ & $\lang!a$ \\ \hline
+	\lang{False} & \lang{True} \\
+	\lang{True} & \lang{False} \\
+	$\bot$ & $\bot$
+\end{tabular}
+\qquad
+\begin{tabular}{c|ccc}
+	\lang\& & \lang{False} & \lang{True} & $\bot$ \\ \hline
+	\lang{False} & \lang{False} & \lang{False} & $\bot$ \\
+	\lang{True}  & \lang{False} & \lang{True}  & $\bot$ \\
+	$\bot$       & $\bot$       & $\bot$       & $\bot$ \\
+\end{tabular}
+\qquad
+\begin{tabular}{c|ccc}
+	\lang| & \lang{False} & \lang{True} & $\bot$ \\ \hline
+	\lang{False} & \lang{False} & \lang{True}  & $\bot$ \\
+	\lang{True}  & \lang{True}  & \lang{True}  & $\bot$ \\
+	$\bot$       & $\bot$       & $\bot$       & $\bot$ \\
+\end{tabular}
+\caption{Truth-tables for logical operators on type \lang{Kleenean}.}
+\label{tab:kleene-ops}
+\end{table}
+
+\begin{table}
+\centering
+\begin{tabular}{c|c}
+	$T$ & $R$ \\ \hline
+	\lang{Boolean} & \lang{Boolean} \\
+	\lang{Kleenean} & \lang{Kleenean} \\
+	\lang{Integer} & \lang{Boolean} \\
+	\lang{Rational} & \lang{Boolean} \\
+	\lang{Real} & \lang{Kleenean}
+\end{tabular}
+\caption{Combinations of argument types $T$ and return types $R$ of the in-built
+	comparison operators $\lang{==},\lang{!=}:T\times T\to R$.}
+\label{tab:cmp-ops-types}
+\end{table}
+
+\end{document}
