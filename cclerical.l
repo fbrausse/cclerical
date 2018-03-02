@@ -108,6 +108,11 @@ true		{
 =>		{ return TK_RDARROW; }
 \|\|		{ return TK_BARS; }
 
+\<=		{ return TK_LE; }
+\>=		{ return TK_GE; }
+==		{ return TK_EQ; }
+\/=		{ return TK_NE; }
+
 [+*/:;,^()=<>&|!-]	{ return yytext[0]; }
 
 Unit		{ return TK_UNIT; }

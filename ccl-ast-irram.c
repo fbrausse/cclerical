@@ -26,8 +26,11 @@ static const char *const CCLERICAL_CPP_BOPS[] = {
 	[CCLERICAL_OP_DIV] = "/",
 	[CCLERICAL_OP_EXP] = NULL,
 	[CCLERICAL_OP_LT]  = "<",
+	[CCLERICAL_OP_LE]  = "<=",
 	[CCLERICAL_OP_GT]  = ">",
+	[CCLERICAL_OP_GE]  = ">=",
 	[CCLERICAL_OP_NE]  = "!=",
+	[CCLERICAL_OP_EQ]  = "==",
 };
 
 typedef ccl_vec_t vec_t;

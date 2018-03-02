@@ -108,8 +108,12 @@ typedef struct cclerical_source_loc YYLTYPE;
 %token TK_ASGN		":="
 %token TK_RSARROW	"->"
 %token TK_RDARROW	"=>"
-%token TK_NE		"/="
 %token TK_BARS		"||"
+
+%token TK_LE		"<="
+%token TK_GE		">="
+%token TK_EQ		"=="
+%token TK_NE		"/="
 
 %token TK_UNIT		"Unit"
 %token TK_BOOL		"Bool"
@@ -127,7 +131,7 @@ typedef struct cclerical_source_loc YYLTYPE;
 %left '|'
 %left '&'
 %precedence '!'
-%nonassoc '<' '>' TK_NE
+%nonassoc '<' TK_LE '>' TK_GE TK_NE TK_EQ
 %left  '+' '-'
 %left  '*' '/'
 %precedence UMINUS
@@ -242,6 +246,9 @@ expr
   | expr '>' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GT, $1, $3),1); }
   | expr '|' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_OR, $1, $3),1); }
   | expr '&' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_AND, $1, $3),1); }
+  | expr TK_LE expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_LE, $1, $3),1); }
+  | expr TK_GE expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_GE, $1, $3),1); }
+  | expr TK_EQ expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_EQ, $1, $3),1); }
   | expr TK_NE expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NE, $1, $3),1); }
   | '!' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_NOT, $2, NULL),1); }
   | '-' expr %prec UMINUS
@@ -519,8 +526,11 @@ static int is_arith_op(enum cclerical_op op)
 	case CCLERICAL_OP_EXP:
 		return 1;
 	case CCLERICAL_OP_LT:
+	case CCLERICAL_OP_LE:
 	case CCLERICAL_OP_GT:
+	case CCLERICAL_OP_GE:
 	case CCLERICAL_OP_NE:
+	case CCLERICAL_OP_EQ:
 	case CCLERICAL_OP_NOT:
 	case CCLERICAL_OP_AND:
 	case CCLERICAL_OP_OR:
@@ -539,10 +549,13 @@ static cclerical_type_set_t op_args(enum cclerical_op op)
 	case CCLERICAL_OP_DIV:
 	case CCLERICAL_OP_EXP:
 	case CCLERICAL_OP_LT:
+	case CCLERICAL_OP_LE:
 	case CCLERICAL_OP_GT:
+	case CCLERICAL_OP_GE:
 		return 1U << CCLERICAL_TYPE_INT |
 		       1U << CCLERICAL_TYPE_REAL;
 	case CCLERICAL_OP_NE:
+	case CCLERICAL_OP_EQ:
 		return 1U << CCLERICAL_TYPE_BOOL |
 		       1U << CCLERICAL_TYPE_INT  |
 		       1U << CCLERICAL_TYPE_REAL;
@@ -565,8 +578,11 @@ static const char *const OP_STRS[] = {
 	[CCLERICAL_OP_DIV] = "/",
 	[CCLERICAL_OP_EXP] = "^",
 	[CCLERICAL_OP_LT]  = "<",
+	[CCLERICAL_OP_LE]  = "<=",
 	[CCLERICAL_OP_GT]  = ">",
+	[CCLERICAL_OP_GE]  = ">=",
 	[CCLERICAL_OP_NE]  = "/=",
+	[CCLERICAL_OP_EQ]  = "==",
 };
 
 static int is_pure(const struct cclerical_parser *p,

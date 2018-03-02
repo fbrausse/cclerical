@@ -30,8 +30,11 @@ static const char *const ops[] = {
 	[CCLERICAL_OP_DIV] = "div",
 	[CCLERICAL_OP_EXP] = "exp",
 	[CCLERICAL_OP_LT]  = "lt",
+	[CCLERICAL_OP_LE]  = "le",
 	[CCLERICAL_OP_GT]  = "gt",
+	[CCLERICAL_OP_GE]  = "ge",
 	[CCLERICAL_OP_NE]  = "ne",
+	[CCLERICAL_OP_EQ]  = "eq",
 };
 
 static void pcnst(FILE *out, const struct cclerical_constant *c)
