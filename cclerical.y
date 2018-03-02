@@ -392,6 +392,12 @@ cases
 	cclerical_vector_add(&$$, $1);
 	cclerical_vector_add(&$$, $3);
     }
+  | TK_BARS pure_expr TK_RDARROW expr
+    {
+	cclerical_vector_init(&$$);
+	cclerical_vector_add(&$$, $2);
+	cclerical_vector_add(&$$, $4);
+    }
   | cases TK_BARS pure_expr TK_RDARROW expr
     {
 	$$ = $1;
