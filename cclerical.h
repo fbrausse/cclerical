@@ -210,6 +210,13 @@ enum cclerical_expr_type {
 	CCLERICAL_EXPR_SEQ,
 };
 
+struct cclerical_decl_asgn {
+	cclerical_id_t id;
+	struct cclerical_expr *init;
+};
+
+CCLERICAL_VECTOR_DEF(cclerical_vec_decl_asgn,struct cclerical_decl_asgn)
+
 struct cclerical_expr {
 	enum cclerical_expr_type type;
 	enum cclerical_type result_type;
@@ -238,9 +245,7 @@ struct cclerical_expr {
 			struct cclerical_scope local;
 		} lim;
 		struct cclerical_stmt_decl_asgn {
-			/* of type { (void *)(uintptr_t)cclerical_id_t;
-			 *           struct cclerical_expr * } */
-			struct cclerical_vector inits;
+			struct cclerical_vec_decl_asgn inits;
 			struct cclerical_expr *body;
 		} decl_asgn;
 		/* struct {} skip; */

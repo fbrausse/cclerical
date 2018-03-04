@@ -75,11 +75,12 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 	        e->min_scope_asgn);
 	switch (e->type) {
 	case CCLERICAL_EXPR_DECL_ASGN:
-		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
-			cclerical_id_t v = (uintptr_t)e->decl_asgn.inits.data[i];
+		for (size_t i=0; i<e->decl_asgn.inits.valid; i++) {
+			const struct cclerical_decl_asgn *da =
+				&e->decl_asgn.inits.data[i];
 			fprintf(stderr, "%*sinit %zu: setting var #%zu to\n",
-			        lvl, "", i/2, v);
-			pexpr(e->decl_asgn.inits.data[i+1], lvl+1);
+			        lvl, "", i, da->id);
+			pexpr(da->init, lvl+1);
 		}
 		fprintf(stderr, "%*sdecl-asgn computing\n", lvl, "");
 		pexpr(e->decl_asgn.body, lvl+1);

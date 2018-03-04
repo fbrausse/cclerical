@@ -113,9 +113,11 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 	case CCLERICAL_EXPR_CNST:
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
-		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
-			visit(decls, (uintptr_t)e->decl_asgn.inits.data[i], VAR_ACCESS_DEF, cb_data);
-			visit_varrefs_expr(decls, e->decl_asgn.inits.data[i+1], visit, cb_data);
+		for (size_t i=0; i<e->decl_asgn.inits.valid; i++) {
+			const struct cclerical_decl_asgn *da
+				= &e->decl_asgn.inits.data[i];
+			visit(decls, da->id, VAR_ACCESS_DEF, cb_data);
+			visit_varrefs_expr(decls, da->init, visit, cb_data);
 		}
 		visit_varrefs_expr(decls, e->decl_asgn.body, visit, cb_data);
 		break;
@@ -203,10 +205,11 @@ static void export_irram_expr(FILE *out, const vec_t *decls,
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
 		cclprintf(out, 0, "[&](");
-		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
-			cclerical_id_t v = (uintptr_t)e->decl_asgn.inits.data[i];
-			export_irram_var_decl(out, decls, v, 0);
-			if (i+2 < e->decl_asgn.inits.valid)
+		for (size_t i=0; i<e->decl_asgn.inits.valid; i++) {
+			const struct cclerical_decl_asgn *da
+				= &e->decl_asgn.inits.data[i];
+			export_irram_var_decl(out, decls, da->id, 0);
+			if (i+1 < e->decl_asgn.inits.valid)
 				cclprintf(out, 0, ", ");
 		}
 		cclprintf(out, 0, "){\n");
@@ -214,10 +217,11 @@ static void export_irram_expr(FILE *out, const vec_t *decls,
 		export_irram_expr(out, decls, e->decl_asgn.body, lvl+1);
 		cclprintf(out, 0, ";\n");
 		cclprintf(out, lvl, "}(");
-		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
-			const struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
-			export_irram_expr(out, decls, f, lvl+1);
-			if (i+2 < e->decl_asgn.inits.valid)
+		for (size_t i=0; i<e->decl_asgn.inits.valid; i++) {
+			const struct cclerical_decl_asgn *da
+				= &e->decl_asgn.inits.data[i];
+			export_irram_expr(out, decls, da->init, lvl+1);
+			if (i+1 < e->decl_asgn.inits.valid)
 				cclprintf(out, 0, ", ");
 		}
 		cclprintf(out, 0, ")");

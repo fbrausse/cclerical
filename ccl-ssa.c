@@ -235,13 +235,13 @@ ccl_insn_id_t ccl_cfg_add_expr(struct ccl_tu *tu,
 		 * we care about scope / declarations of variables after
 		 * liveliness analysis */
 		ccl_insn_id_t chain_id = ccl_cfg_add_expr(tu, e->decl_asgn.body, next, asgn_to);
-		const struct cclerical_vector *inits = &e->decl_asgn.inits;
-		for (size_t i=inits->valid; i; i-=2) {
+		const struct cclerical_vec_decl_asgn *inits = &e->decl_asgn.inits;
+		for (size_t i=inits->valid; i; i--) {
 			/* already exists (as a variable) */
 			ccl_decl_id_t lhs = {
-				.id = (uintptr_t)inits->data[i-2]
+				.id = inits->data[i-1].id
 			};
-			const struct cclerical_expr *rhs = inits->data[i-1];
+			const struct cclerical_expr *rhs = inits->data[i-1].init;
 			chain_id = ccl_cfg_add_expr(tu, rhs, chain_id, &lhs);
 		}
 		return chain_id;

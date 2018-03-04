@@ -76,7 +76,7 @@ typedef struct cclerical_source_loc YYLTYPE;
 		cclerical_id_t varref;
 		struct cclerical_expr *expr;
 	} init;
-	struct cclerical_vector inits;
+	struct cclerical_vec_decl_asgn inits;
 };
 
 %locations
@@ -357,14 +357,12 @@ var_init_list
   : var_init
     {
 	cclerical_vector_init(&$$);
-	cclerical_vector_add(&$$, (void *)(uintptr_t)$1.varref);
-	cclerical_vector_add(&$$, $1.expr);
+	cclerical_vec_decl_asgn_add(&$$, (struct cclerical_decl_asgn){ $1.varref, $1.expr });
     }
   | var_init_list TK_AND var_init
     {
 	$$ = $1;
-	cclerical_vector_add(&$$, (void *)(uintptr_t)$3.varref);
-	cclerical_vector_add(&$$, $3.expr);
+	cclerical_vec_decl_asgn_add(&$$, (struct cclerical_decl_asgn){ $3.varref, $3.expr });
     }
 
 var_init
@@ -718,10 +716,10 @@ static int expr_type(const struct cclerical_parser *p,
 	case CCLERICAL_EXPR_DECL_ASGN: {
 		expr_t = e->decl_asgn.body->result_type;
 		min_scope_asgn = e->decl_asgn.body->min_scope_asgn;
-		const struct cclerical_vector *inits = &e->decl_asgn.inits;
-		for (size_t i=0; i<inits->valid; i+=2) {
-			cclerical_id_t v = (uintptr_t)inits->data[i];
-			if (!is_pure(p, inits->data[i+1])) {
+		const struct cclerical_vec_decl_asgn *inits = &e->decl_asgn.inits;
+		for (size_t i=0; i<inits->valid; i++) {
+			cclerical_id_t v = inits->data[i].id;
+			if (!is_pure(p, inits->data[i].init)) {
 				const struct cclerical_decl *d = p->decls.data[v];
 				ERROR(p, locp, "impure expression in "
 				               "initialization of variable %s\n",

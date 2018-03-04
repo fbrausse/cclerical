@@ -195,8 +195,8 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 			cclerical_expr_destroy(e->branch.if_false);
 		break;
 	case CCLERICAL_EXPR_DECL_ASGN:
-		for (size_t i=0; i<e->decl_asgn.inits.valid; i+=2) {
-			struct cclerical_expr *f = e->decl_asgn.inits.data[i+1];
+		for (size_t i=0; i<e->decl_asgn.inits.valid; i++) {
+			struct cclerical_expr *f = e->decl_asgn.inits.data[i].init;
 			cclerical_expr_destroy(f);
 		}
 		cclerical_vector_fini(&e->decl_asgn.inits);
