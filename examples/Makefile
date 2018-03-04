@@ -10,7 +10,9 @@ EXAMPLES = \
 	if \
 	if2 \
 	logmap \
+	read-only \
 	sqrt \
+	sqrt-bnd \
 
 .PHONY: all clean
 

@@ -1,0 +1,5 @@
+do
+  var x:=0 in (
+  x:=(var z:=0 in z:=x; 3);
+  while (0.1 (* should warn about non-Unit type *); true) do skip;
+  1)
