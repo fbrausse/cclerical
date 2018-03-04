@@ -31,7 +31,7 @@ examples: ccl
 %.lex.o: override CPPFLAGS += -D_POSIX_C_SOURCE=1
 %.lex.o: override CFLAGS += -Wno-unused-function -Wno-sign-compare
 
-ccl.o cclerical.lex.o: cclerical.tab.h cclerical.lex.h
+ccl.o cclerical.tab.o cclerical.lex.o: cclerical.tab.h cclerical.lex.h
 $(OBJS): CPPFLAGS += '-DCCL_VERSION_STR="$(CCL_VERSION)"'
 
 cclerical.tab.c cclerical.tab.h: cclerical.y
