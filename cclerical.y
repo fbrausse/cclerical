@@ -29,21 +29,34 @@ static int lookup_var(struct cclerical_parser *p, char *id,
                    1U << CCLERICAL_TYPE_INT  | \
                    1U << CCLERICAL_TYPE_REAL)
 
+/* Type-checks 'e'; requires 'e' to be of one of the types in 'forced';
+ * if 'req_pure' is true, 'e' has to be a pure expression, i.e. not an
+ * assignment. Updates 'e' with '*locp', 'result_type' and 'min_scope_asgn' and
+ * returns 'e' on success or NULL on error. */
 static struct cclerical_expr * expr(struct cclerical_parser *p,
-                                   struct cclerical_expr *e,
-                                   cclerical_type_set_t forced,
-                                   int req_pure, YYLTYPE *locp);
+                                    struct cclerical_expr *e,
+                                    cclerical_type_set_t forced,
+                                    int req_pure, YYLTYPE *locp);
+/* As expr(p, e, TYPES_ALL, req_pure, locp), but free-s 'e' on error. */
 static struct cclerical_expr * expr_new(struct cclerical_parser *p,
                                        struct cclerical_expr *e,
                                        int req_pure, YYLTYPE *locp);
 
+/* Creates and returns a FUN_CALL expression after looking up 'id' as a function
+ * and type-checking all parameters and free-s 'id'. Only used by the
+ * "IDENT '(' fun_call_params_spec ')'" rule. Returns NULL on error. */
 static struct cclerical_expr * fun_call(struct cclerical_parser *p,
                                         YYLTYPE *locp, char *id,
                                         struct cclerical_vec_expr_ptr params);
 
+/* Creates an entry in the parser's scope initializing it with a copy of 'd'
+ * which may be a variable declaration or an (external) function declaration. */
 static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
                     cclerical_id_t *v, const char *decl_desc);
 
+/* Helper macros to call expr() and expr_new(), respectively, by passing a
+ * pointer to the cclerical_parser object and one to the current location
+ * 'yyloc' and by aborting via 'YYERROR' in case of error. */
 #define EXPR_NEW(e,req_pure)	\
 	do { if (!expr_new(p, e, req_pure, &yyloc)) YYERROR; } while (0)
 #define EXPR(e,forced,req_pure)	\
@@ -89,8 +102,7 @@ typedef struct cclerical_source_loc YYLTYPE;
 %name-prefix "cclerical_"
 //%debug
 //%verbose
-
-%token-table
+//%token-table
 
 %token TK_IF		"if"
 %token TK_THEN		"then"
@@ -125,6 +137,8 @@ typedef struct cclerical_source_loc YYLTYPE;
 %token <ident> IDENT
 %token <cnst> CONSTANT
 
+/* Precedence and associativity */
+
 %precedence ';'
 %precedence TK_ASGN TK_RDARROW TK_IN TK_DO
 %precedence TK_THEN
@@ -139,6 +153,8 @@ typedef struct cclerical_source_loc YYLTYPE;
 %precedence UMINUS
 %right '^'
 
+/* Types of non-terminal results */
+
 %type <prog> prog
 %type <expr> expr pure_expr
 %type <type> type utype
@@ -149,6 +165,8 @@ typedef struct cclerical_source_loc YYLTYPE;
 %type <def_params> fun_call_params fun_call_param_spec
 %type <init> var_init
 %type <inits> var_init_list
+
+/* Start non-terminal */
 
 %start tu
 
