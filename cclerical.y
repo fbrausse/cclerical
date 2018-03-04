@@ -592,7 +592,8 @@ static const char *CARDINALS[] = {
 
 #define ARRAY_SIZE(...)		(sizeof(__VA_ARGS__)/sizeof(*(__VA_ARGS__)))
 
-_Static_assert(ARRAY_SIZE(CARDINALS) == CCLERICAL_OP_MAX_ARITY, "update CARDINALS[]");
+_Static_assert(ARRAY_SIZE(CARDINALS) == CCLERICAL_OP_MAX_ARITY,
+               "update CARDINALS[]");
 
 static int expr_type(const struct cclerical_parser *p,
                      const struct cclerical_expr *e, YYLTYPE *locp,
@@ -603,7 +604,8 @@ static int expr_type(const struct cclerical_parser *p,
 	switch (e->type) {
 	case CCLERICAL_EXPR_OP: {
 		cclerical_type_set_t arg_t = 0;
-		for (unsigned i=0; i<cclerical_op_arity(e->op.op); i++) {
+		unsigned arity = cclerical_op_arity(e->op.op);
+		for (unsigned i=0; i<arity; i++) {
 			if (!is_pure(p, e->op.args[i])) {
 				ERROR(p, locp,
 				      "impure expression as %s operand to %s",
@@ -620,11 +622,6 @@ static int expr_type(const struct cclerical_parser *p,
 		}
 		/* all sub-expressions are pure, operation is pure;
 		 * min_scope_asgn = SIZE_MAX */
-		if ((e->op.op == CCLERICAL_OP_LT || e->op.op == CCLERICAL_OP_GT)
-		    && (arg_t & (1U << CCLERICAL_TYPE_BOOL))) {
-			ERROR(p, locp, "comparison with Boolean type");
-			return 0;
-		}
 		enum cclerical_type arg_common;
 		if (!unique_t(arg_t, &arg_common)) {
 			ERROR(p, locp, "mixed-type op expression");
