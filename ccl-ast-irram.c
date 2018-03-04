@@ -179,7 +179,7 @@ static void export_irram_prog(FILE *out,
                               const struct cclerical_prog *p, int lvl);
 
 struct visit_prev_scope_args {
-	vec_t *vars;
+	struct cclerical_vec_id_t *vars;
 	cclerical_id_t up_excl;
 };
 
@@ -195,7 +195,7 @@ static void visit_prev_scope(const struct cclerical_vec_decl_ptr *decls,
 	for (size_t i=0; i<a->vars->valid; i++)
 		if ((uintptr_t)a->vars->data[i] == v)
 			return;
-	cclerical_vector_add(a->vars, (void *)(uintptr_t)v);
+	cclerical_vec_id_t_add(a->vars, v);
 }
 
 static void export_irram_expr(FILE *out,
@@ -320,14 +320,14 @@ static void export_irram_expr(FILE *out,
 		cclprintf(out, lvl, "}()");
 		break;
 	case CCLERICAL_EXPR_LIM: {
-		vec_t prev_scope_vars = CCLERICAL_VECTOR_INIT;
+		struct cclerical_vec_id_t prev_scope_vars = CCLERICAL_VECTOR_INIT;
 		struct visit_prev_scope_args data = { &prev_scope_vars, e->lim.seq_idx };
 		visit_varrefs_expr(decls, e->lim.seq, visit_prev_scope, &data);
 
 		cclprintf(out, 0, "iRRAM::limit([](int p");
 		for (size_t i=0; i<prev_scope_vars.valid; i++) {
 			cclprintf(out, 0, ", ");
-			export_irram_var_decl(out, decls, (uintptr_t)prev_scope_vars.data[i], 1);
+			export_irram_var_decl(out, decls, prev_scope_vars.data[i], 1);
 		}
 		cclprintf(out, 0, "){\n");
 		cclprintf(out, lvl+1, "");
@@ -338,7 +338,7 @@ static void export_irram_expr(FILE *out,
 		cclprintf(out, 0, ";\n");
 		cclprintf(out, lvl, "}");
 		for (size_t i=0; i<prev_scope_vars.valid; i++) {
-			cclerical_id_t v = (uintptr_t)prev_scope_vars.data[i];
+			cclerical_id_t v = prev_scope_vars.data[i];
 			cclprintf(out, 0, ", %s%zu", CCL_PREFIX, v);
 		}
 		cclprintf(out, 0, ")");
