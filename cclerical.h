@@ -344,8 +344,10 @@ static inline int cclerical_decl_fun_is_external(const struct cclerical_decl *d)
 
 void cclerical_decl_fini(const struct cclerical_decl *d);
 
+CCLERICAL_VECTOR_DEF(cclerical_vec_scope_ptr,struct cclerical_parser_scope *)
+
 struct cclerical_parser {
-	struct cclerical_vector scopes; /* of struct cclerical_parser_scope */
+	struct cclerical_vec_scope_ptr scopes;
 	struct cclerical_prog *prog;
 	struct cclerical_vector decls; /* of struct cclerical_decl * */
 	const struct cclerical_input *input;

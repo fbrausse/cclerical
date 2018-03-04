@@ -304,7 +304,7 @@ int cclerical_parser_new_decl(struct cclerical_parser *p,
 		return 0;
 	size_t idx = p->decls.valid;
 	cclerical_vector_add(&p->decls, memdup(decl, sizeof(*decl)));
-	struct cclerical_parser_scope *s = cclerical_vector_last(&p->scopes);
+	struct cclerical_parser_scope *s = cclerical_vec_scope_ptr_last(&p->scopes);
 	cclerical_vec_id_t_add(&s->scope.var_idcs, idx);
 	if (v)
 		*v = idx;
@@ -319,7 +319,7 @@ void cclerical_parser_open_scope(struct cclerical_parser *p, int ro,
 		.this_read_only = ro,
 		.prev_read_only = parents_ro,
 	};
-	cclerical_vector_add(&p->scopes, memdup(&ns, sizeof(ns)));
+	cclerical_vec_scope_ptr_add(&p->scopes, memdup(&ns, sizeof(ns)));
 }
 
 struct cclerical_scope cclerical_parser_close_scope(struct cclerical_parser *p)
