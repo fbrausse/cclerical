@@ -210,6 +210,10 @@ enum cclerical_expr_type {
 	CCLERICAL_EXPR_SEQ,
 };
 
+struct cclerical_expr;
+
+CCLERICAL_VECTOR_DEF(cclerical_vec_expr_ptr,struct cclerical_expr *)
+
 struct cclerical_decl_asgn {
 	cclerical_id_t id;
 	struct cclerical_expr *init;
@@ -227,7 +231,7 @@ struct cclerical_expr {
 		cclerical_id_t var;
 		struct {
 			cclerical_id_t fun;
-			struct cclerical_vector params; /* of type struct cclerical_expr * */
+			struct cclerical_vec_expr_ptr params;
 		} fun_call;
 		struct {
 			struct cclerical_expr *args[CCLERICAL_OP_MAX_ARITY];
@@ -274,7 +278,7 @@ static inline int cclerical_expr_is_pure(const struct cclerical_expr *e,
 }
 
 struct cclerical_prog {
-	struct cclerical_vector exprs; /* of struct cclerical_expr *, size >= 1 */
+	struct cclerical_vec_expr_ptr exprs; /* size >= 1 */
 };
 
 struct cclerical_prog * cclerical_prog_create(void);

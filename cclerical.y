@@ -39,7 +39,7 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 
 static struct cclerical_expr * fun_call(struct cclerical_parser *p,
                                         YYLTYPE *locp, char *id,
-                                        struct cclerical_vector params);
+                                        struct cclerical_vec_expr_ptr params);
 
 static int decl_new(struct cclerical_parser *p, const struct cclerical_decl *d,
                     cclerical_id_t *v, const char *decl_desc);
@@ -71,7 +71,8 @@ typedef struct cclerical_source_loc YYLTYPE;
 	char *ident;
 	struct cclerical_vector cases;
 	struct cclerical_constant cnst;
-	struct cclerical_vector params;
+	struct cclerical_vec_expr_ptr def_params;
+	struct cclerical_vector decl_params;
 	struct {
 		cclerical_id_t varref;
 		struct cclerical_expr *expr;
@@ -142,9 +143,9 @@ typedef struct cclerical_source_loc YYLTYPE;
 %type <type> type utype
 %type <cases> cases
 %type <varref> fun_decl_param fun_decl
-%type <params> extfun_decl_params extfun_decl_params_spec
-%type <params> fun_decl_params fun_decl_params_spec
-%type <params> fun_call_params fun_call_param_spec
+%type <decl_params> extfun_decl_params extfun_decl_params_spec
+%type <decl_params> fun_decl_params fun_decl_params_spec
+%type <def_params> fun_call_params fun_call_param_spec
 %type <init> var_init
 %type <inits> var_init_list
 
@@ -221,12 +222,12 @@ prog
   : prog ';' expr
     {
 	$$ = $1;
-	cclerical_vector_add(&$$->exprs, $3);
+	cclerical_vec_expr_ptr_add(&$$->exprs, $3);
     }
   | expr
     {
 	$$ = cclerical_prog_create();
-	cclerical_vector_add(&$$->exprs, $1);
+	cclerical_vec_expr_ptr_add(&$$->exprs, $1);
     }
 
 pure_expr
@@ -382,12 +383,12 @@ fun_call_params
   : pure_expr
     {
 	cclerical_vector_init(&$$);
-	cclerical_vector_add(&$$, $1);
+	cclerical_vec_expr_ptr_add(&$$, $1);
     }
   | fun_call_params ',' pure_expr
     {
 	$$ = $1;
-	cclerical_vector_add(&$$, $3);
+	cclerical_vec_expr_ptr_add(&$$, $3);
     }
 
 cases
@@ -737,7 +738,7 @@ static int expr_type(const struct cclerical_parser *p,
 	}
 	case CCLERICAL_EXPR_FUN_CALL: {
 		const struct cclerical_decl *f = p->decls.data[e->fun_call.fun];
-		const struct cclerical_vector *a = &e->fun_call.params;
+		const struct cclerical_vec_expr_ptr *a = &e->fun_call.params;
 		for (size_t i=0; i<a->valid; i++) {
 			const struct cclerical_expr *g = a->data[i];
 			if (!is_pure(p, g)) {
@@ -837,7 +838,7 @@ static struct cclerical_expr * expr_new(struct cclerical_parser *p,
 
 static struct cclerical_expr * fun_call(struct cclerical_parser *p,
                                         YYLTYPE *locp, char *id,
-                                        struct cclerical_vector params)
+                                        struct cclerical_vec_expr_ptr params)
 {
 	cclerical_id_t v;
 	if (!lookup_var(p, id, &v, NULL, locp, 0, "function"))

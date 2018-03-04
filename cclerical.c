@@ -153,7 +153,7 @@ struct cclerical_expr * cclerical_expr_create_op(enum cclerical_op op,
 
 enum cclerical_type cclerical_prog_type(const struct cclerical_prog *p)
 {
-	struct cclerical_expr *last = cclerical_vector_last(&p->exprs);
+	struct cclerical_expr *last = cclerical_vec_expr_ptr_last(&p->exprs);
 	return last->result_type;
 }
 
