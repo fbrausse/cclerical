@@ -337,7 +337,10 @@ void cclerical_decl_fini(const struct cclerical_decl *d)
 	case CCLERICAL_DECL_VAR:
 		break;
 	case CCLERICAL_DECL_FUN:
-		cclerical_vector_fini(&d->fun.arguments);
+		if (cclerical_decl_fun_is_external(d))
+			cclerical_vector_fini(&d->fun.arguments.types);
+		else
+			cclerical_vector_fini(&d->fun.arguments.ids);
 		if (d->fun.body)
 			cclerical_prog_destroy(d->fun.body);
 		break;

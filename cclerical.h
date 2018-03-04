@@ -304,6 +304,8 @@ struct cclerical_parser_scope {
 	unsigned prev_read_only : 1;
 };
 
+CCLERICAL_VECTOR_DEF(cclerical_vec_type,enum cclerical_type)
+
 struct cclerical_decl {
 	enum {
 		CCLERICAL_DECL_VAR,
@@ -315,9 +317,10 @@ struct cclerical_decl {
 	union {
 	//	struct {} var;
 		struct {
-			/* if body: of type (void *)(uintptr_t)cclerical_id_t
-			 * else   : of type (void *)(uintptr_t)cclerical_type */
-			struct cclerical_vector arguments;
+			union {
+				struct cclerical_vec_type types; /* if !body */
+				struct cclerical_vec_id_t ids;   /* if  body */
+			} arguments;
 			/* may be NULL for declarations of "external" functions */
 			struct cclerical_prog *body;
 		} fun;
@@ -326,10 +329,13 @@ struct cclerical_decl {
 
 #define CCLERICAL_DECL_INIT_VAR(value_type,id,loc) \
 	{ CCLERICAL_DECL_VAR, value_type, id, loc, \
-	  .fun = { CCLERICAL_VECTOR_INIT, NULL } /*.var = {}*/, }
+	  .fun = { { CCLERICAL_VECTOR_INIT }, NULL } /*.var = {}*/, }
 
 #define CCLERICAL_DECL_INIT_FUN(value_type,id,loc,args,body) \
-	{ CCLERICAL_DECL_FUN, value_type, id, loc, .fun = { args, body }, }
+	{ CCLERICAL_DECL_FUN, value_type, id, loc, .fun = { { .ids = args }, body }, }
+
+#define CCLERICAL_DECL_INIT_EXT_FUN(value_type,id,loc,args,body) \
+	{ CCLERICAL_DECL_FUN, value_type, id, loc, .fun = { { .types = args }, body }, }
 
 static inline int cclerical_decl_fun_is_external(const struct cclerical_decl *d)
 {

@@ -49,17 +49,19 @@ static void export_irram_fun_sig(FILE *out, const vec_t *decls, cclerical_id_t i
 	if (!cclerical_decl_fun_is_external(d)) {
 		fprintf(out, "static %s %s%zu(",
 		       CCLERICAL_iRRAM_TYPES[d->value_type], CCL_PREFIX, i);
-		for (size_t j=0; j<d->fun.arguments.valid; j++) {
-			cclerical_id_t ai = (uintptr_t)d->fun.arguments.data[j];
+		const struct cclerical_vec_id_t *args = &d->fun.arguments.ids;
+		for (size_t j=0; j<args->valid; j++) {
+			cclerical_id_t ai = args->data[j];
 			export_irram_var_decl(out, decls, ai, 0);
-			if (j+1 < d->fun.arguments.valid)
+			if (j+1 < args->valid)
 				fprintf(out, ", ");
 		}
 		fprintf(out, ")");
 	} else {
 		fprintf(out, "%s %s(", CCLERICAL_iRRAM_TYPES[d->value_type], d->id);
-		for (size_t j=0; j<d->fun.arguments.valid; j++) {
-			enum cclerical_type t = (uintptr_t)d->fun.arguments.data[j];
+		const struct cclerical_vec_type *args = &d->fun.arguments.types;
+		for (size_t j=0; j<args->valid; j++) {
+			enum cclerical_type t = args->data[j];
 			fprintf(out, "%s%s", j ? ", " : "", CCLERICAL_iRRAM_TYPES[t]);
 		}
 		fprintf(out, ")");

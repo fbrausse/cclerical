@@ -72,7 +72,8 @@ typedef struct cclerical_source_loc YYLTYPE;
 	struct cclerical_vec_case cases;
 	struct cclerical_constant cnst;
 	struct cclerical_vec_expr_ptr def_params;
-	struct cclerical_vector decl_params;
+	struct cclerical_vec_id_t decl_params;
+	struct cclerical_vec_type ext_decl_params;
 	struct {
 		cclerical_id_t varref;
 		struct cclerical_expr *expr;
@@ -143,7 +144,7 @@ typedef struct cclerical_source_loc YYLTYPE;
 %type <type> type utype
 %type <cases> cases
 %type <varref> fun_decl_param fun_decl
-%type <decl_params> extfun_decl_params extfun_decl_params_spec
+%type <ext_decl_params> extfun_decl_params extfun_decl_params_spec
 %type <decl_params> fun_decl_params fun_decl_params_spec
 %type <def_params> fun_call_params fun_call_param_spec
 %type <init> var_init
@@ -173,7 +174,7 @@ fun_decl
     }
   | TK_EXTERNAL IDENT '(' extfun_decl_params_spec ')' TK_RSARROW utype
     {
-	struct cclerical_decl d = CCLERICAL_DECL_INIT_FUN($7,$2,yylloc,$4,NULL);
+	struct cclerical_decl d = CCLERICAL_DECL_INIT_EXT_FUN($7,$2,yylloc,$4,NULL);
 	if (!decl_new(p, &d, &$$, "external function"))
 		YYERROR;
     }
@@ -186,12 +187,12 @@ extfun_decl_params
   : type
     {
 	cclerical_vector_init(&$$);
-	cclerical_vector_add(&$$, (void *)(uintptr_t)$1);
+	cclerical_vec_type_add(&$$, $1);
     }
   | extfun_decl_params ',' type
     {
 	$$ = $1;
-	cclerical_vector_add(&$$, (void *)(uintptr_t)$3);
+	cclerical_vec_type_add(&$$, $3);
     }
 
 fun_decl_params_spec
@@ -202,12 +203,12 @@ fun_decl_params
   : fun_decl_param
     {
 	cclerical_vector_init(&$$);
-	cclerical_vector_add(&$$, (void *)(uintptr_t)$1);
+	cclerical_vec_id_t_add(&$$, $1);
     }
   | fun_decl_params ',' fun_decl_param
     {
 	$$ = $1;
-	cclerical_vector_add(&$$, (void *)(uintptr_t)$3);
+	cclerical_vec_id_t_add(&$$, $3);
     }
 
 fun_decl_param
@@ -843,21 +844,24 @@ static struct cclerical_expr * fun_call(struct cclerical_parser *p,
 		ERROR(p, locp, "'%s' does not identify a function", d->id);
 		return NULL;
 	}
-	if (d->fun.arguments.valid != params.valid) {
+	size_t n_args = cclerical_decl_fun_is_external(d)
+	                ? d->fun.arguments.types.valid
+	                : d->fun.arguments.ids.valid;
+	if (n_args != params.valid) {
 		ERROR(p, locp, "in function-call to %s: number of arguments "
 		               "mismatch: passed: %zu, declared with: %zu",
-		      d->id, params.valid, d->fun.arguments.valid);
+		      d->id, params.valid, n_args);
 		return NULL;
 	}
 	for (size_t i=0; i<params.valid; i++) {
 		struct cclerical_expr *e = params.data[i];
 		enum cclerical_type arg_type;
 		if (!cclerical_decl_fun_is_external(d)) {
-			cclerical_id_t param = (uintptr_t)d->fun.arguments.data[i];
+			cclerical_id_t param = d->fun.arguments.ids.data[i];
 			struct cclerical_decl *dparam = p->decls.data[param];
 			arg_type = dparam->value_type;
 		} else
-			arg_type = (uintptr_t)d->fun.arguments.data[i];
+			arg_type = d->fun.arguments.types.data[i];
 		// if ((1U << arg_type) & super_types(e->result_type)) /* no implicit casts! */
 		if (arg_type == e->result_type)
 			continue;
