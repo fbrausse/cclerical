@@ -93,12 +93,12 @@ function	{ return TK_FUN; }
 external	{ return TK_EXTERNAL; }
 and		{ return TK_AND; }
 
-false		{
+False		{
 			cnst_bool(&yylval->cnst, 0);
 			return CONSTANT;
 		}
 
-true		{
+True		{
 			cnst_bool(&yylval->cnst, 1);
 			return CONSTANT;
 		}

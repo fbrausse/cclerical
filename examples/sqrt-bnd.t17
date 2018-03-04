@@ -12,8 +12,8 @@ function abs(Real x):
 
 function bounded(Real x, Int n):
 	var eps := 2.0^real(-n) in
-		case	x < eps     => true
-		||	x > eps/2.0 => false
+		case	x < eps     => True
+		||	x > eps/2.0 => False
 		end
 
 function sqrt(Real x):
