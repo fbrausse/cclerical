@@ -162,8 +162,10 @@ void cclerical_constant_fini(struct cclerical_constant *c);
 
 typedef size_t cclerical_id_t;
 
+CCLERICAL_VECTOR_DEF(cclerical_vec_id_t,cclerical_id_t)
+
 struct cclerical_scope {
-	struct cclerical_vector var_idcs; /* of (void *)(uintptr_t)cclerical_id_t */
+	struct cclerical_vec_id_t var_idcs;
 };
 
 void cclerical_scope_fini(const struct cclerical_scope *s);

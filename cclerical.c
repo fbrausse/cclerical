@@ -272,7 +272,7 @@ static int lookup(const struct cclerical_parser *p,
 {
 	const struct cclerical_parser_scope *s = p->scopes.data[scope_idx];
 	if (!rw || !s->this_read_only) {
-		const struct cclerical_vector *vi = &s->scope.var_idcs;
+		const struct cclerical_vec_id_t *vi = &s->scope.var_idcs;
 		for (size_t i=0; i<vi->valid; i++) {
 			size_t idx = (uintptr_t)vi->data[i];
 			const struct cclerical_decl *v = p->decls.data[idx];
@@ -304,7 +304,7 @@ int cclerical_parser_new_decl(struct cclerical_parser *p,
 	size_t idx = p->decls.valid;
 	cclerical_vector_add(&p->decls, memdup(decl, sizeof(*decl)));
 	struct cclerical_parser_scope *s = cclerical_vector_last(&p->scopes);
-	cclerical_vector_add(&s->scope.var_idcs, (void *)(uintptr_t)idx);
+	cclerical_vec_id_t_add(&s->scope.var_idcs, idx);
 	if (v)
 		*v = idx;
 	return 1;
