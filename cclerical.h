@@ -221,6 +221,17 @@ struct cclerical_decl_asgn {
 
 CCLERICAL_VECTOR_DEF(cclerical_vec_decl_asgn,struct cclerical_decl_asgn)
 
+struct cclerical_case {
+	struct cclerical_expr *cond;
+	struct cclerical_expr *body;
+};
+
+CCLERICAL_VECTOR_DEF(cclerical_vec_case,struct cclerical_case)
+
+void cclerical_cases_fini(const struct cclerical_vec_case *c);
+
+struct cclerical_prog;
+
 struct cclerical_expr {
 	enum cclerical_expr_type type;
 	enum cclerical_type result_type;
@@ -237,7 +248,7 @@ struct cclerical_expr {
 			struct cclerical_expr *args[CCLERICAL_OP_MAX_ARITY];
 			enum cclerical_op op;
 		} op;
-		struct cclerical_vector cases; /* of cclerical_case */
+		struct cclerical_vec_case cases;
 		struct {
 			struct cclerical_expr *cond;
 			struct cclerical_expr *if_true;
@@ -284,13 +295,6 @@ struct cclerical_prog {
 struct cclerical_prog * cclerical_prog_create(void);
 void                    cclerical_prog_destroy(struct cclerical_prog *p);
 enum cclerical_type     cclerical_prog_type(const struct cclerical_prog *p);
-
-struct cclerical_case {
-	struct cclerical_expr *cond;
-	struct cclerical_prog *prog;
-};
-
-void cclerical_cases_fini(const struct cclerical_vector *c);
 
 /* -------------------------------------------------------------------------- */
 

@@ -124,10 +124,10 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 		pexpr(e->lim.seq, lvl+1);
 		break;
 	case CCLERICAL_EXPR_CASE:
-		for (size_t i=0; i<e->cases.valid; i+=2) {
-			fprintf(stderr, "%*scase %zu:\n", lvl, "", i/2);
-			pexpr(e->cases.data[i], lvl+1);
-			pexpr(e->cases.data[i+1], lvl+1);
+		for (size_t i=0; i<e->cases.valid; i++) {
+			fprintf(stderr, "%*scase %zu:\n", lvl, "", i);
+			pexpr(e->cases.data[i].cond, lvl+1);
+			pexpr(e->cases.data[i].body, lvl+1);
 		}
 		break;
 	case CCLERICAL_EXPR_SKIP:

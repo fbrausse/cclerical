@@ -250,22 +250,22 @@ ccl_insn_id_t ccl_cfg_add_expr(struct ccl_tu *tu,
 		ccl_insn_id_t cases_id = ccl_tu_insn_add(tu, CCL_INSN_CASE, e->source_loc);
 		{
 			struct ccl_insn *cases = get_insn(tu, cases_id);
-			size_t n = e->cases.valid / 2;
+			size_t n = e->cases.valid;
 			cclerical_vector_ensure_size(&cases->cases.conds, n);
 			cclerical_vector_ensure_size(&cases->cases.bodies, n);
 			cases->cases.conds.valid = n;
 			cases->cases.bodies.valid = n;
 		}
 		ccl_insn_id_t chain_id = cases_id;
-		for (size_t i=e->cases.valid; i; i-=2) {
-			const struct cclerical_expr *c = e->cases.data[i-2];
-			const struct cclerical_expr *b = e->cases.data[i-1];
+		for (size_t i=e->cases.valid; i; i--) {
+			const struct cclerical_expr *c = e->cases.data[i-1].cond;
+			const struct cclerical_expr *b = e->cases.data[i-1].body;
 			ccl_decl_id_t cond_var = ccl_tu_decl_add_art(tu, c->result_type, cases_id);
 			chain_id = ccl_cfg_add_expr(tu, c, chain_id, &cond_var);
 			ccl_insn_id_t body_id = ccl_cfg_add_expr(tu, b, next, asgn_to);
 			struct ccl_insn *cases = get_insn(tu, cases_id);
-			cases->cases.conds.data[(i-2)/2] = (void *)(uintptr_t)cond_var.id;
-			cases->cases.bodies.data[(i-2)/2] = (void *)(uintptr_t)body_id.id;
+			cases->cases.conds.data[i-1] = (void *)(uintptr_t)cond_var.id;
+			cases->cases.bodies.data[i-1] = (void *)(uintptr_t)body_id.id;
 		}
 		return chain_id;
 	}

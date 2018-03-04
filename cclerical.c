@@ -242,11 +242,12 @@ void cclerical_prog_destroy(struct cclerical_prog *p)
 	free(p);
 }
 
-void cclerical_cases_fini(const struct cclerical_vector *c)
+void cclerical_cases_fini(const struct cclerical_vec_case *c)
 {
-	for (size_t i=0; i<c->valid; i+=2) {
-		cclerical_expr_destroy(c->data[i]);
-		cclerical_expr_destroy(c->data[i+1]);
+	for (size_t i=0; i<c->valid; i++) {
+		const struct cclerical_case *cc = &c->data[i];
+		cclerical_expr_destroy(cc->cond);
+		cclerical_expr_destroy(cc->body);
 	}
 	cclerical_vector_fini(c);
 }

@@ -69,7 +69,7 @@ typedef struct cclerical_source_loc YYLTYPE;
 	enum cclerical_type type;
 	cclerical_id_t varref;
 	char *ident;
-	struct cclerical_vector cases;
+	struct cclerical_vec_case cases;
 	struct cclerical_constant cnst;
 	struct cclerical_vec_expr_ptr def_params;
 	struct cclerical_vector decl_params;
@@ -395,20 +395,17 @@ cases
   : pure_expr TK_RDARROW expr
     {
 	cclerical_vector_init(&$$);
-	cclerical_vector_add(&$$, $1);
-	cclerical_vector_add(&$$, $3);
+	cclerical_vec_case_add(&$$, (struct cclerical_case){ $1, $3 });
     }
   | TK_BARS pure_expr TK_RDARROW expr
     {
 	cclerical_vector_init(&$$);
-	cclerical_vector_add(&$$, $2);
-	cclerical_vector_add(&$$, $4);
+	cclerical_vec_case_add(&$$, (struct cclerical_case){ $2, $4 });
     }
   | cases TK_BARS pure_expr TK_RDARROW expr
     {
 	$$ = $1;
-	cclerical_vector_add(&$$, $3);
-	cclerical_vector_add(&$$, $5);
+	cclerical_vec_case_add(&$$, (struct cclerical_case){ $3, $5 });
     }
 
 type
@@ -664,8 +661,8 @@ static int expr_type(const struct cclerical_parser *p,
 		break;
 	case CCLERICAL_EXPR_CASE: {
 		cclerical_type_set_t arg_t = 0;
-		for (size_t i=0; i<e->cases.valid; i+=2) {
-			const struct cclerical_expr *b = e->cases.data[i];
+		for (size_t i=0; i<e->cases.valid; i++) {
+			const struct cclerical_expr *b = e->cases.data[i].cond;
 			if (!is_pure(p, b)) {
 				ERROR(p, locp, "impure condition in case %zu",
 				      i);
@@ -675,7 +672,7 @@ static int expr_type(const struct cclerical_parser *p,
 				ERROR(p, locp, "require boolean condition in case %zu", i);
 				return 0;
 			}
-			const struct cclerical_expr *f = e->cases.data[i+1];
+			const struct cclerical_expr *f = e->cases.data[i].body;
 			arg_t |= 1U << f->result_type;
 			min_scope_asgn = MIN(min_scope_asgn, f->min_scope_asgn);
 		}

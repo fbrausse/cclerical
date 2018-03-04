@@ -99,9 +99,9 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 {
 	switch (e->type) {
 	case CCLERICAL_EXPR_CASE:
-		for (size_t i=0; i<e->cases.valid; i+=2) {
-			visit_varrefs_expr(decls, e->cases.data[i], visit, cb_data);
-			visit_varrefs_expr(decls, e->cases.data[i+1], visit, cb_data);
+		for (size_t i=0; i<e->cases.valid; i++) {
+			visit_varrefs_expr(decls, e->cases.data[i].cond, visit, cb_data);
+			visit_varrefs_expr(decls, e->cases.data[i].body, visit, cb_data);
 		}
 		break;
 	case CCLERICAL_EXPR_IF:
@@ -266,17 +266,17 @@ static void export_irram_expr(FILE *out, const vec_t *decls,
 			DIE(2,"iRRAM backend does not support more than 6 cases\n");
 		cclprintf(out, 0, "[&]{\n");
 		cclprintf(out, lvl+1, "switch (iRRAM::choose(");
-		for (size_t i=0; i<e->cases.valid; i+=2) {
-			const struct cclerical_expr *f = e->cases.data[i];
+		for (size_t i=0; i<e->cases.valid; i++) {
+			const struct cclerical_expr *f = e->cases.data[i].cond;
 			export_irram_expr(out, decls, f, lvl+1);
-			if (i+2 < e->cases.valid)
+			if (i+1 < e->cases.valid)
 				cclprintf(out, 0, ", ");
 		}
 		cclprintf(out, 0, ")) {\n");
 		cclprintf(out, lvl+1, "default: abort();\n");
-		for (size_t i=0; i<e->cases.valid; i+=2) {
-			const struct cclerical_expr *f = e->cases.data[i+1];
-			cclprintf(out, lvl+1, "case %zu:\n", i/2+1);
+		for (size_t i=0; i<e->cases.valid; i++) {
+			const struct cclerical_expr *f = e->cases.data[i].body;
+			cclprintf(out, lvl+1, "case %zu:\n", i+1);
 			cclprintf(out, lvl+2, "%s", f->result_type == CCLERICAL_TYPE_UNIT ? "" : "return ");
 			export_irram_expr(out, decls, f, lvl+2);
 			cclprintf(out, 0, ";\n");
