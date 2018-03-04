@@ -36,7 +36,7 @@ static struct ccl_decl * ccl_decl_create(const struct cclerical_decl *d)
 	return memdup(&r, sizeof(r));
 }
 
-void ccl_tu_init(struct ccl_tu *tu, const ccl_vec_t *decls)
+void ccl_tu_init(struct ccl_tu *tu, const struct cclerical_vec_decl_ptr *decls)
 {
 	memset(tu, 0, sizeof(*tu));
 	cclerical_vector_ensure_size(&tu->decl_storage, decls->valid);

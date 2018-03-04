@@ -303,7 +303,7 @@ int cclerical_parser_new_decl(struct cclerical_parser *p,
 	if (cclerical_parser_var_lookup(p, decl->id, v, NULL, 0))
 		return 0;
 	size_t idx = p->decls.valid;
-	cclerical_vector_add(&p->decls, memdup(decl, sizeof(*decl)));
+	cclerical_vec_decl_ptr_add(&p->decls, memdup(decl, sizeof(*decl)));
 	struct cclerical_parser_scope *s = cclerical_vec_scope_ptr_last(&p->scopes);
 	cclerical_vec_id_t_add(&s->scope.var_idcs, idx);
 	if (v)

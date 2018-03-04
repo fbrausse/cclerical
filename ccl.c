@@ -338,7 +338,8 @@ static void ccl_cfg_dump(FILE *out, const struct cc_opts *opts,
 
 static void export_ssa(FILE *out, const struct cc_opts *opts,
                        const struct cclerical_input *input,
-                       const struct cclerical_prog *p, const vec_t *decls)
+                       const struct cclerical_prog *p,
+                       const struct cclerical_vec_decl_ptr *decls)
 {
 	struct ccl_tu tu = CCL_TU_INIT;
 	ccl_tu_init(&tu, decls);

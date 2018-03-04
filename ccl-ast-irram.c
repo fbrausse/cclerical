@@ -35,7 +35,9 @@ static const char *const CCLERICAL_CPP_BOPS[] = {
 
 typedef ccl_vec_t vec_t;
 
-static void export_irram_var_decl(FILE *out, const vec_t *decls, cclerical_id_t ai, int const_ref)
+static void export_irram_var_decl(FILE *out,
+                                  const struct cclerical_vec_decl_ptr *decls,
+                                  cclerical_id_t ai, int const_ref)
 {
 	struct cclerical_decl *a = decls->data[ai];
 	fprintf(out, "%s%s %s%s%zu /* clerical: %s */",
@@ -43,7 +45,9 @@ static void export_irram_var_decl(FILE *out, const vec_t *decls, cclerical_id_t 
 	        const_ref ? "&" : "", CCL_PREFIX, ai, a->id);
 }
 
-static void export_irram_fun_sig(FILE *out, const vec_t *decls, cclerical_id_t i)
+static void export_irram_fun_sig(FILE *out,
+                                 const struct cclerical_vec_decl_ptr *decls,
+                                 cclerical_id_t i)
 {
 	struct cclerical_decl *d = decls->data[i];
 	if (!cclerical_decl_fun_is_external(d)) {
@@ -68,7 +72,9 @@ static void export_irram_fun_sig(FILE *out, const vec_t *decls, cclerical_id_t i
 	}
 }
 
-static void export_irram_fun_decl(FILE *out, const vec_t *decls, cclerical_id_t i)
+static void export_irram_fun_decl(FILE *out,
+                                  const struct cclerical_vec_decl_ptr *decls,
+                                  cclerical_id_t i)
 {
 	struct cclerical_decl *d = decls->data[i];
 	if (!cclerical_decl_fun_is_external(d)) {
@@ -90,13 +96,16 @@ enum var_access {
 	VAR_ACCESS_CALL,
 };
 
-typedef void visit_varrefs_f(const vec_t *decls, cclerical_id_t v,
+typedef void visit_varrefs_f(const struct cclerical_vec_decl_ptr *decls,
+                             cclerical_id_t v,
                              enum var_access access, void *cb_data);
 
-static void visit_varrefs_prog(const vec_t *decls, const struct cclerical_prog *p,
+static void visit_varrefs_prog(const struct cclerical_vec_decl_ptr *decls,
+                               const struct cclerical_prog *p,
                                visit_varrefs_f *visit, void *cb_data);
 
-static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *e,
+static void visit_varrefs_expr(const struct cclerical_vec_decl_ptr *decls,
+                               const struct cclerical_expr *e,
                                visit_varrefs_f *visit, void *cb_data)
 {
 	switch (e->type) {
@@ -155,7 +164,8 @@ static void visit_varrefs_expr(const vec_t *decls, const struct cclerical_expr *
 	}
 }
 
-static void visit_varrefs_prog(const vec_t *decls, const struct cclerical_prog *p,
+static void visit_varrefs_prog(const struct cclerical_vec_decl_ptr *decls,
+                               const struct cclerical_prog *p,
                                visit_varrefs_f *visit, void *cb_data)
 {
 	for (size_t i=0; i<p->exprs.valid; i++) {
@@ -164,7 +174,8 @@ static void visit_varrefs_prog(const vec_t *decls, const struct cclerical_prog *
 	}
 }
 
-static void export_irram_prog(FILE *out, const vec_t *decls,
+static void export_irram_prog(FILE *out,
+                              const struct cclerical_vec_decl_ptr *decls,
                               const struct cclerical_prog *p, int lvl);
 
 struct visit_prev_scope_args {
@@ -172,7 +183,8 @@ struct visit_prev_scope_args {
 	cclerical_id_t up_excl;
 };
 
-static void visit_prev_scope(const vec_t *decls, cclerical_id_t v,
+static void visit_prev_scope(const struct cclerical_vec_decl_ptr *decls,
+                             cclerical_id_t v,
                              enum var_access access, void *cb_data)
 {
 	struct visit_prev_scope_args *a = cb_data;
@@ -186,7 +198,8 @@ static void visit_prev_scope(const vec_t *decls, cclerical_id_t v,
 	cclerical_vector_add(a->vars, (void *)(uintptr_t)v);
 }
 
-static void export_irram_expr(FILE *out, const vec_t *decls,
+static void export_irram_expr(FILE *out,
+                              const struct cclerical_vec_decl_ptr *decls,
                               const struct cclerical_expr *e, int lvl)
 {
 	switch (e->type) {
@@ -359,7 +372,8 @@ static void export_irram_expr(FILE *out, const vec_t *decls,
 	}
 }
 
-static void export_irram_prog(FILE *out, const vec_t *decls,
+static void export_irram_prog(FILE *out,
+                              const struct cclerical_vec_decl_ptr *decls,
                               const struct cclerical_prog *p, int lvl)
 {
 	cclprintf(out, 0, "{\n");
@@ -376,7 +390,8 @@ static void export_irram_prog(FILE *out, const vec_t *decls,
 
 void export_irram(FILE *out,
                   const struct cc_opts *opts, const struct cclerical_input *input,
-                  const struct cclerical_prog *p, const vec_t *decls)
+                  const struct cclerical_prog *p,
+                  const struct cclerical_vec_decl_ptr *decls)
 {
 	(void)opts;
 	(void)input;

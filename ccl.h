@@ -37,10 +37,12 @@ struct cclerical_input;
 
 typedef void backend_f(FILE *, const struct cc_opts *opts,
                        const struct cclerical_input *,
-                       const struct cclerical_prog *, const ccl_vec_t *);
+                       const struct cclerical_prog *,
+                       const struct cclerical_vec_decl_ptr *);
 
 void export_irram(FILE *out,
                   const struct cc_opts *opts, const struct cclerical_input *,
-                  const struct cclerical_prog *p, const ccl_vec_t *decls);
+                  const struct cclerical_prog *p,
+                  const struct cclerical_vec_decl_ptr *decls);
 
 #endif

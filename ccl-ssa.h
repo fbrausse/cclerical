@@ -137,7 +137,7 @@ struct ccl_tu {
 	CCLERICAL_VECTOR_INIT, \
 }
 
-void ccl_tu_init(struct ccl_tu *tu, const ccl_vec_t *decls);
+void ccl_tu_init(struct ccl_tu *tu, const struct cclerical_vec_decl_ptr *decls);
 void ccl_tu_fini(const struct ccl_tu *tu);
 
 ccl_fun_id_t ccl_cfg_add(struct ccl_tu *tu, const struct cclerical_prog *p, struct cclerical_source_loc source_loc);
