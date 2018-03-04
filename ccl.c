@@ -516,6 +516,8 @@ static void parse_feat(struct cc_opts *opts, const char *f)
 	exit(1);
 }
 
+CCLERICAL_VECTOR_DEF(ccl_vec_input,struct cclerical_input)
+
 int main(int argc, char **argv)
 {
 	struct cc_opts opts = CC_OPTS_INIT;
@@ -574,11 +576,11 @@ Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 		fprintf(stderr, "ccl v%s\n", CCL_VERSION_STR);
 
 	/* of type struct cclerical_input * */
-	struct cclerical_vector inputs = CCLERICAL_VECTOR_INIT;
+	struct ccl_vec_input inputs = CCLERICAL_VECTOR_INIT;
 	if (argc == optind) {
 		struct cclerical_input in = { .name = "<stdin>" };
 		open_input(stdin, &in);
-		cclerical_vector_add(&inputs, memdup(&in, sizeof(in)));
+		ccl_vec_input_add(&inputs, in);
 	}
 	for (; optind < argc; optind++) {
 		struct cclerical_input in = { .name = argv[optind] };
@@ -588,15 +590,14 @@ Author: Franz Brausse <brausse@informatik.uni-trier.de>\n");
 			    in.name, strerror(errno));
 		open_input(f, &in);
 		fclose(f);
-		cclerical_vector_add(&inputs, memdup(&in, sizeof(in)));
+		ccl_vec_input_add(&inputs, in);
 	}
 
 	int r = 0;
 	for (size_t i=0; !r && i<inputs.valid; i++) {
-		struct cclerical_input *in = inputs.data[i];
+		struct cclerical_input *in = &inputs.data[i];
 		r = compile_t17(in, cc, &opts);
 		in->fini(in);
-		free(in);
 	}
 	cclerical_vector_fini(&inputs);
 	fclose(opts.output);
