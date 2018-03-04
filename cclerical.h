@@ -12,6 +12,45 @@
 extern "C" {
 #endif
 
+/* count trailing zeroes */
+
+/* Returns the number of trailing 0-bits in x, starting at the least significant
+ * bit position. If x is 0, the result is undefined. */
+#ifdef __GNUC__
+# define CCLERICAL_CTZ(x) \
+	_Generic(+(x) \
+	        ,unsigned int: __builtin_ctz(x) \
+	        ,unsigned long: __builtin_ctzl(x) \
+	        ,unsigned long long: __builtin_ctzll(x) \
+	        )
+#else
+# define CCLERICAL_CTZ_FN(name,type)        \
+	static inline unsigned name(type x) \
+	{                                   \
+		unsigned n = 0;             \
+		for (; !(x & 1U); n++)      \
+			x >>= 1;            \
+		return n;                   \
+	}
+CCLERICAL_CTZ_FN(cclerical_ctz,unsigned)
+CCLERICAL_CTZ_FN(cclerical_ctzl,unsigned long)
+CCLERICAL_CTZ_FN(cclerical_ctzll,unsigned long long)
+# undef CCLERICAL_CTX_FN
+# define CCLERICAL_CTZ(x) \
+	_Generic(+(x) \
+	        ,unsigned int: cclerical_ctz(x) \
+	        ,unsigned long: cclerical_ctzl(x) \
+	        ,unsigned long long: cclerical_ctzll(x) \
+	        )
+#endif
+
+/* utility functions */
+
+static inline void * memdup(const void *src, size_t n)
+{
+	return memcpy(malloc(n), src, n);
+}
+
 struct cclerical_input {
 	const char *name;
 	void *data;
@@ -33,11 +72,6 @@ enum cclerical_highlight_mode {
 void cclerical_highlight(FILE *out, enum cclerical_highlight_mode mode,
                          const struct cclerical_input *input,
                          const struct cclerical_source_loc *locp);
-
-static inline void * memdup(const void *src, size_t n)
-{
-	return memcpy(malloc(n), src, n);
-}
 
 struct cclerical_vector {
 	void **data;

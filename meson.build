@@ -41,6 +41,7 @@ cclexe = executable('ccl', ccl_srcs
                    , dependencies : cclheaders
                    , c_args       : [ '-D_POSIX_C_SOURCE=2'
                                     , '-DCCL_VERSION_STR="'+meson.project_version()+'"'
+                                    , '-std=c11'
                                     ]
                    )
 

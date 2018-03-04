@@ -506,13 +506,10 @@ static cclerical_type_set_t super_types(enum cclerical_type t)
 
 static int unique_t(cclerical_type_set_t s, enum cclerical_type *res)
 {
-	switch (s) {
-	case 1U << CCLERICAL_TYPE_UNIT: *res = CCLERICAL_TYPE_UNIT; return 1;
-	case 1U << CCLERICAL_TYPE_BOOL: *res = CCLERICAL_TYPE_BOOL; return 1;
-	case 1U << CCLERICAL_TYPE_INT : *res = CCLERICAL_TYPE_INT ; return 1;
-	case 1U << CCLERICAL_TYPE_REAL: *res = CCLERICAL_TYPE_REAL; return 1;
-	default: return 0;
-	}
+	if (s & (s-1))
+		return 0;
+	*res = CCLERICAL_CTZ(s);
+	return 1;
 }
 
 static int is_arith_op(enum cclerical_op op)

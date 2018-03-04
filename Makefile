@@ -23,6 +23,7 @@ examples: ccl
 %.c: %.y
 %.c: %.l
 
+%.o: override CFLAGS += -std=c11
 %.o: %.c $(wildcard *.h)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
