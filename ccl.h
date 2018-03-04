@@ -10,7 +10,9 @@
 #define DIE(code,...) do { fprintf(stderr, __VA_ARGS__); exit(code); } while (0)
 #define CCL_PREFIX		"ccl_"
 
-typedef struct cclerical_vector ccl_vec_t;
+CCLERICAL_VECTOR_DEF(ccl_vec_t,void *)
+
+typedef struct ccl_vec_t ccl_vec_t;
 
 enum {
 	OPT_FEAT_CFG_COMPACT_ALIAS,

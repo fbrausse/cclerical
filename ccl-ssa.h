@@ -3,8 +3,7 @@
 #define CCL_SSA_H
 
 #include "cclerical.h"
-
-typedef struct cclerical_vector ccl_vec_t;
+#include "ccl.h"
 
 typedef union { cclerical_id_t id; } ccl_decl_id_t; /* index into ccl_tu::decl_storage */
 typedef union { cclerical_id_t id; } ccl_bb_id_t;   /* index into ccl_tu::bb_storage */

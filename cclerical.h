@@ -112,8 +112,6 @@ cclerical_vector_tmpl_prep_add(struct cclerical_vector_tmpl *v, size_t elem_sz)
 		return v->data[v->valid-1]; \
 	}
 
-CCLERICAL_VECTOR_DEF(cclerical_vector, void *)
-
 struct cclerical_input {
 	const char *name;
 	void *data;

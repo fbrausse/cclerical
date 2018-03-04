@@ -60,7 +60,7 @@ ccl_decl_id_t ccl_tu_decl_add(struct ccl_tu *tu)
 {
 	ccl_decl_id_t r = { .id = tu->decl_storage.valid };
 	struct ccl_decl *d = calloc(1, sizeof(struct ccl_decl));
-	cclerical_vector_add(&tu->decl_storage, d);
+	ccl_vec_t_add(&tu->decl_storage, d);
 	return r;
 }
 
@@ -84,7 +84,7 @@ ccl_insn_id_t ccl_tu_insn_add(struct ccl_tu *tu, enum ccl_insn_type type,
 	struct ccl_insn *in = calloc(1, sizeof(struct ccl_insn));
 	in->type = type;
 	in->source_loc = source_loc;
-	cclerical_vector_add(&tu->insn_storage, in);
+	ccl_vec_t_add(&tu->insn_storage, in);
 	return r;
 }
 
@@ -329,7 +329,7 @@ ccl_fun_id_t ccl_cfg_add(struct ccl_tu *tu, const struct cclerical_prog *p, stru
 		.retval = ret,
 		.body   = start,
 	};
-	cclerical_vector_add(&tu->fun_storage, memdup(&fundat, sizeof(fundat)));
+	ccl_vec_t_add(&tu->fun_storage, memdup(&fundat, sizeof(fundat)));
 	return fun;
 }
 
@@ -342,7 +342,7 @@ static void ccl_vec_init2(ccl_vec_t *v, size_t n)
 
 static void ccl_vec_add_id(ccl_vec_t *v, size_t id)
 {
-	cclerical_vector_add(v, (void *)(uintptr_t)id);
+	ccl_vec_t_add(v, (void *)(uintptr_t)id);
 }
 
 static size_t ccl_vec_get_id(const ccl_vec_t *v, size_t i)
