@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>	/* FILE */
 #include <stdlib.h>	/* malloc(), free(), abort() */
+#include <stddef.h>	/* max_align_t */
 #include <string.h>
 #include <errno.h>
 
@@ -51,6 +52,68 @@ static inline void * memdup(const void *src, size_t n)
 	return memcpy(malloc(n), src, n);
 }
 
+/* typed vectors */
+
+#define CCLERICAL_VECTOR_STRUCT(name,of_type) \
+	struct name { \
+		of_type *data; \
+		size_t valid, size; \
+	}
+
+CCLERICAL_VECTOR_STRUCT(cclerical_vector_tmpl,void);
+
+static inline void
+cclerical_vector_tmpl_ensure_size(struct cclerical_vector_tmpl *v,
+                                  size_t n, size_t elem_sz)
+{
+	if (v->size >= n)
+		return;
+	v->size = n > v->valid * 2 ? n : v->valid * 2;
+	if (!(v->data = realloc(v->data, elem_sz * v->size)))
+		abort();
+}
+
+#define cclerical_vector_init(v)	memset((v), 0, sizeof(*(v)))
+#define cclerical_vector_fini(v)	free((v)->data)
+#define cclerical_vector_ensure_size(v,n) \
+	cclerical_vector_tmpl_ensure_size((struct cclerical_vector_tmpl *)(v), \
+	                                  (n), sizeof(*(v)->data))
+/* no generic version of _add(v,it) since it would either have to evaluate v or
+ * it multiple times, take a ptr of it or require __typeof__() support */
+#if 0
+static inline void *
+cclerical_vector_tmpl_prep_add(struct cclerical_vector_tmpl *v, size_t elem_sz)
+{
+	cclerical_vector_tmpl_ensure_size(v, v->valid+1, elem_sz);
+	return (char *)v->data + elem_sz * v->valid++;
+}
+
+#define cclerical_vector_add(v,it) \
+	(void)(*(__typeof__((v)->data))cclerical_vector_tmpl_prep_add( \
+		(struct cclerical_vector_tmpl *)(v), \
+		sizeof(*(v)->data) \
+	      ) = (it))
+#endif
+
+#define CCLERICAL_VECTOR_INIT	{ NULL, 0, 0, }
+
+#define CCLERICAL_VECTOR_DEF(name,of_type) \
+	/* there is no realloc_aligned() */ \
+	_Static_assert(_Alignof(of_type) <= _Alignof(max_align_t), \
+	               "vectors with alignment > max_align_t unsupported"); \
+	CCLERICAL_VECTOR_STRUCT(name,of_type); \
+	static inline void name ## _add(struct name *v, of_type it) \
+	{ \
+		cclerical_vector_ensure_size(v, v->size+1); \
+		v->data[v->valid++] = it; \
+	} \
+	static inline of_type name ## _last(const struct name *v) \
+	{ \
+		return v->data[v->valid-1]; \
+	}
+
+CCLERICAL_VECTOR_DEF(cclerical_vector, void *)
+
 struct cclerical_input {
 	const char *name;
 	void *data;
@@ -72,34 +135,6 @@ enum cclerical_highlight_mode {
 void cclerical_highlight(FILE *out, enum cclerical_highlight_mode mode,
                          const struct cclerical_input *input,
                          const struct cclerical_source_loc *locp);
-
-struct cclerical_vector {
-	void **data;
-	size_t valid, size;
-};
-
-#define CCLERICAL_VECTOR_INIT	{ NULL, 0, 0, }
-
-static inline void cclerical_vector_init(struct cclerical_vector *v)
-{
-	memset(v, 0, sizeof(*v));
-}
-
-static inline void cclerical_vector_ensure_size(struct cclerical_vector *v, size_t n)
-{
-	if (v->size < n &&
-	    !((v->size = n > v->valid*2 ? n : v->valid*2),
-	      v->data = realloc(v->data, sizeof(*v->data)*v->size)))
-		abort();
-}
-
-static inline void * cclerical_vector_last(const struct cclerical_vector *v)
-{
-	return v->data[v->valid-1];
-}
-
-void cclerical_vector_add(struct cclerical_vector *v, void *it);
-void cclerical_vector_fini(const struct cclerical_vector *v);
 
 enum cclerical_type {
 	CCLERICAL_TYPE_UNIT,

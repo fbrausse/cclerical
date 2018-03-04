@@ -123,17 +123,6 @@ const char *const CCLERICAL_TYPE_STR[] = {
 	[CCLERICAL_TYPE_REAL] = "Real"
 };
 
-void cclerical_vector_add(struct cclerical_vector *v, void *it)
-{
-	cclerical_vector_ensure_size(v, v->valid+1);
-	v->data[v->valid++] = it;
-}
-
-void cclerical_vector_fini(const struct cclerical_vector *v)
-{
-	free(v->data);
-}
-
 int cclerical_op_is_unary(enum cclerical_op op)
 {
 	return op == CCLERICAL_OP_NEG || op == CCLERICAL_OP_NOT;
