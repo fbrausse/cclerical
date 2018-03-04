@@ -1,5 +1,10 @@
 /* SPDX short identifier: BSD-3-Clause */
 
+#if _POSIX_C_SOURCE < 1
+# undef _POSIX_C_SOURCE
+# define _POSIX_C_SOURCE	1 /* isatty(3p), fileno(3p) */
+#endif
+
 #include <unistd.h>	/* isatty(3p) */
 
 #include "cclerical.h"

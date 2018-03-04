@@ -26,6 +26,8 @@ examples: ccl
 %.o: %.c $(wildcard *.h)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
+# flex uses isatty(3p), fileno(3p)
+%.lex.o: override CPPFLAGS += -D_POSIX_C_SOURCE=1
 %.lex.o: override CFLAGS += -Wno-unused-function -Wno-sign-compare
 
 ccl.o cclerical.lex.o: cclerical.tab.h cclerical.lex.h

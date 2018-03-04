@@ -1,5 +1,9 @@
 /* SPDX short identifier: BSD-3-Clause */
-#define _POSIX_C_SOURCE	2 /* getopt(3) */
+
+#if _POSIX_C_SOURCE < 2
+# undef _POSIX_C_SOURCE
+# define _POSIX_C_SOURCE	2 /* getopt(3p) */
+#endif
 
 #include <stdio.h>
 #include <stdarg.h>
