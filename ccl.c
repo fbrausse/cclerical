@@ -73,6 +73,9 @@ static void pexpr(const struct cclerical_expr *e, int lvl)
 	fprintf(stderr, "%*sexpr: %s of type %s, min_asgn_scope: %zu\n",
 	        lvl, "", st[e->type], CCLERICAL_TYPE_STR[e->result_type],
 	        e->min_scope_asgn);
+	if (e->hoare_conds.pre)
+		fprintf(stderr, "%*s hoare pre: '%s', post: '%s'\n",
+		        lvl, "", e->hoare_conds.pre, e->hoare_conds.post);
 	switch (e->type) {
 	case CCLERICAL_EXPR_DECL_ASGN:
 		for (size_t i=0; i<e->decl_asgn.inits.valid; i++) {

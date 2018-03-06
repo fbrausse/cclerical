@@ -137,6 +137,8 @@ struct cclerical_expr * cclerical_expr_create(enum cclerical_expr_type type)
 {
 	struct cclerical_expr *e = malloc(sizeof(struct cclerical_expr));
 	e->type = type;
+	e->hoare_conds.pre = NULL;
+	e->hoare_conds.post = NULL;
 	return e;
 }
 
@@ -223,6 +225,8 @@ void cclerical_expr_destroy(struct cclerical_expr *e)
 		cclerical_prog_destroy(e->seq);
 		break;
 	}
+	free(e->hoare_conds.pre);
+	free(e->hoare_conds.post);
 	free(e);
 }
 

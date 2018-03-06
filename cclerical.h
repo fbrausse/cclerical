@@ -230,11 +230,16 @@ void cclerical_cases_fini(const struct cclerical_vec_case *c);
 
 struct cclerical_prog;
 
+struct cclerical_hoare {
+	char *pre, *post;
+};
+
 struct cclerical_expr {
 	enum cclerical_expr_type type;
 	enum cclerical_type result_type;
 	struct cclerical_source_loc source_loc;
 	size_t min_scope_asgn;
+	struct cclerical_hoare hoare_conds;
 	union {
 		struct cclerical_constant cnst;
 		cclerical_id_t var;

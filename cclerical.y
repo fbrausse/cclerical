@@ -3,6 +3,7 @@
 #include <limits.h>	/* LONG_MAX */
 #include <stdarg.h>	/* va_*() */
 #include <stdio.h>	/* FILE */
+#include <assert.h>
 
 #define YYMAXDEPTH LONG_MAX
 #define YYLTYPE_IS_TRIVIAL 1
@@ -84,6 +85,7 @@ typedef struct cclerical_source_loc YYLTYPE;
 	char *ident;
 	struct cclerical_vec_case cases;
 	struct cclerical_constant cnst;
+	char *hoare;
 	struct cclerical_vec_expr_ptr def_params;
 	struct cclerical_vec_id_t decl_params;
 	struct cclerical_vec_type ext_decl_params;
@@ -136,6 +138,7 @@ typedef struct cclerical_source_loc YYLTYPE;
 
 %token <ident> IDENT
 %token <cnst> CONSTANT
+%token <hoare> HOARE
 
 /* Precedence and associativity */
 
@@ -156,7 +159,7 @@ typedef struct cclerical_source_loc YYLTYPE;
 /* Types of non-terminal results */
 
 %type <prog> prog
-%type <expr> expr pure_expr
+%type <expr> expr pure_expr plain_expr
 %type <type> type utype
 %type <cases> cases
 %type <varref> fun_decl_param fun_decl
@@ -255,8 +258,21 @@ pure_expr
     { free(cclerical_parser_close_scope(p).var_idcs.data); }
     { $$ = $2; }
 
-/* TODO: check during runtime whether operands are pure */
 expr
+  : plain_expr
+  | HOARE plain_expr HOARE
+    {
+	$$ = $2;
+	assert(!$$->hoare_conds.pre);
+	assert(!$$->hoare_conds.post);
+	$$->hoare_conds.pre = $1;
+	$$->hoare_conds.post = $3;
+	assert($$->hoare_conds.pre);
+	assert($$->hoare_conds.post);
+    }
+
+/* TODO: check during runtime whether operands are pure */
+plain_expr
   : expr '+' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_ADD, $1, $3),1); }
   | expr '-' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_SUB, $1, $3),1); }
   | expr '*' expr { EXPR_NEW($$ = cclerical_expr_create_op(CCLERICAL_OP_MUL, $1, $3),1); }

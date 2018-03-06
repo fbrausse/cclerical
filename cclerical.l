@@ -78,6 +78,8 @@ WHITE		[ \t\f\v\r\n]
 <comment>\*\)	{ if (!--comment_depth) BEGIN(INITIAL); }
 <comment>[^(*]|\([^*]|\*[^)]	;
 
+\{(\\.|[^\\}])*\}	{ yylval->hoare = ccl_strdup(yytext); return HOARE; }
+
 if		{ return TK_IF; }
 then		{ return TK_THEN; }
 else		{ return TK_ELSE; }
@@ -153,3 +155,5 @@ Real		{ return TK_REAL; }
 			cnst_num(&yylval->cnst, yytext, 8, CCLERICAL_TYPE_INT);
 			return CONSTANT;
 		}
+
+.		{ return yytext[0]; }
